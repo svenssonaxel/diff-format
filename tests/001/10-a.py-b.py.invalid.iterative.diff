@@ -1,0 +1,22 @@
+--- a.py
++++ b.py
+@@ -1,4 (19) +1,4 @@
+>enclosing if
++if True:$
++    \
+ for a in [1,$
++    \
+           2,$
++    \
+           3]:$
++    \
+     print(a)$
+>
+<enclosing if
+ if True:$
+     for a in [1,$
+               2\
+-,$
+-              3\
+ ]:$
+         print(a)$

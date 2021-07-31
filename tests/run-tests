@@ -1,0 +1,213 @@
+#!/usr/bin/env python3
+import contextlib, os, re, sys, tempfile, unittest
+
+def m(pattern, string):
+    match = re.match(pattern, string, re.DOTALL)
+    if not match:
+        return None
+    if(match.group(0) != string):
+        die(f'Pattern /${pattern}/ matched only part of string')
+    ret = []
+    for index in range((match.lastindex or 0)+1):
+        ret.append(match.group(index))
+    return ret
+
+def die(reason):
+    sys.stderr.write(reason+'\n')
+    sys.exit(1)
+
+# Polyfill
+if not 'waitstatus_to_exitcode' in dir(os):
+    def waitstatus_to_exitcode(sts):
+        if os.WIFSIGNALED(sts):
+            return -os.WTERMSIG(sts)
+        else:
+            assert os.WIFEXITED(sts), "Status is {:n}".format(sts)
+            return os.WEXITSTATUS(sts)
+    os.waitstatus_to_exitcode = waitstatus_to_exitcode
+
+@contextlib.contextmanager
+def inDir(dirName):
+    olddir = os.getcwd()
+    os.chdir(dirName)
+    try:
+        yield
+    finally:
+        os.chdir(olddir)
+
+@contextlib.contextmanager
+def filesInTmpDir(files):
+    with tempfile.TemporaryDirectory() as tempdir:
+        ec = os.waitstatus_to_exitcode(os.system(f'cp -pr -- {" ".join(files)} {tempdir}'))
+        if not ec==0:
+            die('Failed to copy files into temporary directory')
+        with inDir(tempdir):
+            yield
+
+implementationsOf={}
+def findImplementations():
+    with inDir(os.path.join('..', 'implementations')):
+        for dirName in os.listdir():
+            with inDir(dirName):
+                path=os.getcwd()
+                for fileName in os.listdir():
+                    implementationsOf[fileName] = [*(implementationsOf[fileName] if fileName in implementationsOf else []), os.path.join(path, fileName)]
+
+def red(text):
+    if(sys.stdout.isatty()):
+        return f'\x1b[31m{text}\x1b[0m'
+    else:
+        return text
+
+class TestAll(unittest.TestCase):
+    # Count asserts
+    _assertCount=0
+    def assertEqual(self, expected, actual):
+        self._assertCount+=1
+        super().assertEqual(expected, actual)
+    # Pretty nested tests
+    _nestTestMsgs=[]
+    @contextlib.contextmanager
+    def nestTest(self, msg):
+        self._nestTestMsgs.append(msg)
+        msgs=[*self._nestTestMsgs] # Defensive copy
+        print(f"{' │' * (len(msgs) - 1)} ╭╴{msg}")
+        done=False
+        try:
+            with self.subTest("Nested test", path=msgs):
+                yield
+                print(f"{' │' * (len(msgs) - 1)} ╰╴Done")
+                done=True
+        finally:
+            if not done:
+                print(f"{' │' * (len(msgs) - 1)} ╰╴{red('NOT SUCCESSFUL!')} TEST PATH:")
+                for m in msgs:
+                    print(f"{' │' * (len(msgs) - 1)}   ✦ {m}")
+            self._nestTestMsgs.pop()
+    # Will be executed by unittest.main
+    def test_all(self):
+        testdirs=os.listdir()
+        testdirs.sort()
+        for testdir in testdirs:
+            if re.match('^[0-9]{3}$', testdir):
+                with self.nestTest(f'Tests in directory {testdir}'):
+                    with inDir(testdir):
+                        self.doTestThisDir()
+        print(f'(asserts={self._assertCount})')
+    # Run all tests in one directory
+    def doTestThisDir(self):
+        contentfiles = []
+        files=os.listdir()
+        files.sort()
+        for filename in files:
+            match = m('^([0-9]+)-([a-z](\.[a-z]+)?)-([a-z](\.[a-z]+)?)\.(.*)', filename)
+            if(match):
+                with self.nestTest(f'Test file {filename}'):
+                    file1 = match[2]
+                    file2 = match[4]
+                    testtype = match[6]
+                    if(testtype=='unified.diff'):
+                        self.doTestUnifiedDiff(filename, file1, file2)
+                    elif(testtype=='iterative.diff'):
+                        self.doTestIterativeDiff(filename, file1, file2)
+                    elif(testtype=='invalid.unified.diff'):
+                        self.doTestInvalidUnifiedDiff(filename)
+                    elif(testtype=='invalid.iterative.diff'):
+                        self.doTestInvalidIterativeDiff(filename)
+                    else:
+                        self.fail(f"Don't know what to do with file {filename}")
+                continue
+            match = m('^([a-z](\.[a-z]+)?)$', filename)
+            if(match):
+                for otherfile in contentfiles:
+                    with self.nestTest(f'Test content files {otherfile} and {filename}'):
+                        self.doTestContentFiles(otherfile, filename)
+                contentfiles.append(filename)
+                continue
+            self.fail(f"Don't know what to do with file {filename}")
+    # Functions for testing
+    def doTestUnifiedDiff(self, diffFile, file1, file2):
+        for validateUnifiedDiff in implementationsOf['validate-unified-diff']:
+            with self.nestTest(f'Validate unified diff using {validateUnifiedDiff}'):
+                self.sh(f'cat {diffFile} | {validateUnifiedDiff}')
+        if not m('^.*converted-to\.unified\.diff.*$', diffFile):
+            for convertUnifiedDiffToIterativeDiff in implementationsOf['convert-unified-diff-to-iterative-diff']:
+                with self.nestTest(f'Convert to iterative using {convertUnifiedDiffToIterativeDiff}'):
+                    with filesInTmpDir([diffFile, file1, file2]):
+                        self.sh(f'cat {diffFile} | {convertUnifiedDiffToIterativeDiff} > {diffFile}.converted-to.iterative.diff')
+                        self.doTestIterativeDiff(f'{diffFile}.converted-to.iterative.diff', file1, file2)
+        with self.nestTest(f'Forward patch'):
+            with filesInTmpDir([diffFile, file1, file2]):
+                self.assertNotSame(file1, file2)
+                self.sh(f'cp -pr {file1} {file1}.bu')
+                self.assertSame(file1, f'{file1}.bu')
+                self.sh(f'patch < {diffFile}')
+                self.assertSame(file1, file2)
+                self.assertNotSame(file1, f'{file1}.bu')
+        if not m('^.*\.reversed$', diffFile):
+            for reverseUnifiedDiff in implementationsOf['reverse-unified-diff']:
+                with self.nestTest(f'Reverse unified diff using {reverseUnifiedDiff}'):
+                    with filesInTmpDir([diffFile, file1, file2]):
+                        self.sh(f'cat {diffFile} | {reverseUnifiedDiff} > {diffFile}.reversed')
+                        with self.nestTest(f'Double reverse is noop'):
+                            with filesInTmpDir([diffFile, f'{diffFile}.reversed']):
+                                self.assertNotSame(diffFile, f'{diffFile}.reversed')
+                                self.sh(f'cat {diffFile}.reversed | {reverseUnifiedDiff} > {diffFile}.reversed.reversed')
+                                self.assertSame(diffFile, f'{diffFile}.reversed.reversed')
+                        with self.nestTest(f'Use reverse diff file as diff file'):
+                            self.doTestUnifiedDiff(f'{diffFile}.reversed', file2, file1)
+        with self.nestTest(f'Unified diff should be invalid as iterative diff'):
+            self.doTestInvalidIterativeDiff(diffFile)
+    def doTestIterativeDiff(self, diffFile, file1, file2):
+        for validateIterativeDiff in implementationsOf['validate-iterative-diff']:
+            with self.nestTest(f'Validate iterative diff using {validateIterativeDiff}'):
+                self.sh(f'cat {diffFile} | {validateIterativeDiff}')
+        if not m('^.*converted-to\.iterative\.diff.*$', diffFile):
+            for convertIterativeDiffToUnifiedDiff in implementationsOf['convert-iterative-diff-to-unified-diff']:
+                with self.nestTest(f'Convert to unified using {convertIterativeDiffToUnifiedDiff}'):
+                    with filesInTmpDir([diffFile, file1, file2]):
+                        self.sh(f'cat {diffFile} | {convertIterativeDiffToUnifiedDiff} > {diffFile}.converted-to.unified.diff')
+                        self.doTestUnifiedDiff(f'{diffFile}.converted-to.unified.diff', file1, file2)
+        if not m('^.*\.reversed$', diffFile):
+            for reverseIterativeDiff in implementationsOf['reverse-iterative-diff']:
+                with self.nestTest(f'Reverse iterative diff using {reverseIterativeDiff}'):
+                    with filesInTmpDir([diffFile, file1, file2]):
+                        self.sh(f'cat {diffFile} | {reverseIterativeDiff} > {diffFile}.reversed')
+                        with self.nestTest(f'Double reverse is noop'):
+                            with filesInTmpDir([diffFile, f'{diffFile}.reversed']):
+                                self.assertNotSame(diffFile, f'{diffFile}.reversed')
+                                self.sh(f'cat {diffFile}.reversed | {reverseIterativeDiff} > {diffFile}.reversed.reversed')
+                                self.assertSame(diffFile, f'{diffFile}.reversed.reversed')
+                        with self.nestTest(f'Use reverse diff file as diff file'):
+                            self.doTestIterativeDiff(f'{diffFile}.reversed', file2, file1)
+        with self.nestTest(f'Iterative diff should be invalid as unified diff'):
+            self.doTestInvalidUnifiedDiff(diffFile)
+    def doTestInvalidUnifiedDiff(self, diffFile):
+        for validateUnifiedDiff in implementationsOf['validate-unified-diff']:
+            with self.nestTest(f'Make sure unified diff is invalid using {validateUnifiedDiff}'):
+                self.sh(f'cat {diffFile} | {validateUnifiedDiff}', 1)
+    def doTestInvalidIterativeDiff(self, diffFile):
+        for validateIterativeDiff in implementationsOf['validate-iterative-diff']:
+            with self.nestTest(f'Make sure iterative diff is invalid using {validateIterativeDiff}'):
+                self.sh(f'cat {diffFile} | {validateIterativeDiff}', 1)
+    def doTestContentFiles(self, file1, file2):
+        with filesInTmpDir([file1, file2]):
+            with self.nestTest(f'Create unified diff using diff'):
+                self.sh(f'diff -u --label {file1} --label {file2} {file1} {file2} > generated_diff-{file1}-{file2}-unified.diff', 1)
+                self.doTestUnifiedDiff(f'generated_diff-{file1}-{file2}-unified.diff', file1, file2)
+            with self.nestTest(f'Create unified diff using git diff'):
+                self.sh(f'git diff --no-index -a -- {file1} {file2} > generated_git_diff-{file1}-{file2}-unified.diff', 1)
+                self.doTestUnifiedDiff(f'generated_git_diff-{file1}-{file2}-unified.diff', file1, file2)
+    # Utility
+    def assertSame(self, file1, file2):
+        self.sh(f'diff -r {file1} {file2}', 0)
+    def assertNotSame(self, file1, file2):
+        self.sh(f'diff -r {file1} {file2} > /dev/null', 1)
+    def sh(self, cmd, expectedExitCode=0):
+        self.assertEqual(expectedExitCode, os.waitstatus_to_exitcode(os.system(f'set -e; {cmd}')))
+
+if m('^.*[ !"#$&\'()*+;<>?\\^`{|}~].*$', os.getcwd()):
+    die(f'Running from a weird path.')
+findImplementations()
+if __name__ == '__main__':
+    unittest.main()
