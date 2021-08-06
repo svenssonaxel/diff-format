@@ -1,6 +1,6 @@
---- a.py
-+++ b.py
-@@ -1,4 (20) +1,3 @@
+--- a/file.py
++++ b/file.py
+@@ -1,4 (20) +1,4 @@
 >enclosing if
 +if True:$
 +    \
@@ -20,4 +20,3 @@
 -              3\
  ]:$
          print(a)$
-<

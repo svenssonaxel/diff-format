@@ -1,5 +1,5 @@
---- a.py
-+++ b.py
+--- a/file.py
++++ b/file.py
 @@ -1,4 +1,4 @@
 -for a in [1,
 -          2,

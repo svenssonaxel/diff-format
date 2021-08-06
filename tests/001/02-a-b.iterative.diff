@@ -1,5 +1,5 @@
---- a.py
-+++ b.py
+--- a/file.py
++++ b/file.py
 @@ -1,4 (11) +1,4 @@
 +if True:$
 +    \

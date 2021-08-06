@@ -1,11 +1,11 @@
---- a.py
-+++ b.py
+--- a/file.py
++++ b/file.py
 @@ -1,4 +1,4 @@
-+if True:
 -for a in [1,
-+    for a in [1,
 -          2,
-+              2]:
 -          3]:
 -    print(a)
++if True:
++    for a in [1,
++              2]:
 +        print(a)

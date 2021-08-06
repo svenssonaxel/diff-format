@@ -100,12 +100,12 @@ class TestAll(unittest.TestCase):
         files=os.listdir()
         files.sort()
         for filename in files:
-            match = m('^([0-9]+)-([a-z](\.[a-z]+)?)-([a-z](\.[a-z]+)?)\.(.*)', filename)
+            match = m('^[0-9]+-([a-z])-([a-z])\.(.*)', filename)
             if(match):
                 with self.nestTest(f'Test file {filename}'):
-                    file1 = match[2]
-                    file2 = match[4]
-                    testtype = match[6]
+                    file1 = match[1]
+                    file2 = match[2]
+                    testtype = match[3]
                     if(testtype=='unified.diff'):
                         self.doTestUnifiedDiff(filename, file1, file2)
                     elif(testtype=='iterative.diff'):
@@ -117,7 +117,7 @@ class TestAll(unittest.TestCase):
                     else:
                         self.fail(f"Don't know what to do with file {filename}")
                 continue
-            match = m('^([a-z](\.[a-z]+)?)$', filename)
+            match = m('^([a-z])$', filename)
             if(match):
                 for otherfile in contentfiles:
                     with self.nestTest(f'Test content files {otherfile} and {filename}'):
@@ -141,9 +141,12 @@ class TestAll(unittest.TestCase):
                 self.assertNotSame(file1, file2)
                 self.sh(f'cp -pr {file1} {file1}.bu')
                 self.assertSame(file1, f'{file1}.bu')
-                self.sh(f'patch < {diffFile}')
-                self.assertSame(file1, file2)
-                self.assertNotSame(file1, f'{file1}.bu')
+                for patchUnified in implementationsOf['patch-unified']:
+                    with self.nestTest(f'Patch unified using {patchUnified}'):
+                        with filesInTmpDir([diffFile, file1, file2, f'{file1}.bu']):
+                            self.sh(f'{patchUnified} {file1} < {diffFile}')
+                            self.assertSame(file1, file2)
+                            self.assertNotSame(file1, f'{file1}.bu')
         if not m('^.*\.reversed$', diffFile):
             for reverseUnifiedDiff in implementationsOf['reverse-unified-diff']:
                 with self.nestTest(f'Reverse unified diff using {reverseUnifiedDiff}'):
@@ -191,13 +194,11 @@ class TestAll(unittest.TestCase):
             with self.nestTest(f'Make sure iterative diff is invalid using {validateIterativeDiff}'):
                 self.sh(f'cat {diffFile} | {validateIterativeDiff}', 1)
     def doTestContentFiles(self, file1, file2):
-        with filesInTmpDir([file1, file2]):
-            with self.nestTest(f'Create unified diff using diff'):
-                self.sh(f'diff -u --label {file1} --label {file2} {file1} {file2} > generated_diff-{file1}-{file2}-unified.diff', 1)
-                self.doTestUnifiedDiff(f'generated_diff-{file1}-{file2}-unified.diff', file1, file2)
-            with self.nestTest(f'Create unified diff using git diff'):
-                self.sh(f'git diff --no-index -a -- {file1} {file2} > generated_git_diff-{file1}-{file2}-unified.diff', 1)
-                self.doTestUnifiedDiff(f'generated_git_diff-{file1}-{file2}-unified.diff', file1, file2)
+        for diffUnified in implementationsOf['diff-unified']:
+            with self.nestTest(f'Create unified diff using {diffUnified}'):
+                with filesInTmpDir([file1, file2]):
+                    self.sh(f'{diffUnified} {file1} {file2} > generated_diff-{file1}-{file2}-unified.diff', 1)
+                    self.doTestUnifiedDiff(f'generated_diff-{file1}-{file2}-unified.diff', file1, file2)
     # Utility
     def assertSame(self, file1, file2):
         self.sh(f'diff -r {file1} {file2}', 0)

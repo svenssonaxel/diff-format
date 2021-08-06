@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+/usr/bin/git diff --no-index --no-prefix -a -- "$1" "$2"
