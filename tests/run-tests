@@ -201,9 +201,9 @@ class TestAll(unittest.TestCase):
                     self.doTestUnifiedDiff(f'generated_diff-{v1}-{v2}-unified.diff', v1, v2)
     # Utility
     def assertSame(self, v1, v2):
-        self.sh(f'diff -r {v1} {v2}', 0)
+        self.sh(f'diff -u -r {v1} {v2}', 0)
     def assertNotSame(self, v1, v2):
-        self.sh(f'diff -r {v1} {v2} > /dev/null', 1)
+        self.sh(f'diff -u -r {v1} {v2} > /dev/null', 1)
     def sh(self, cmd, expectedExitCode=0):
         self.assertEqual(expectedExitCode, os.waitstatus_to_exitcode(os.system(f'set -e; {cmd}')))
 

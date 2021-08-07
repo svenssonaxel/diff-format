@@ -43,20 +43,27 @@ def parseDiff(inputLines, mode):
                 'right': line2m[1],
                 }
             continue
+        linem = m(r'^similarity index ([0-9]+%)\n$', line)
+        if(linem):
+            yield {
+                'op': 'similarity-index',
+                'similarity-index': linem[1],
+                }
+            continue
         linem = m(r'^rename from (.*)\n$', line)
         if(linem):
             line2 = next(inputLines)
             line2m = m(r'^rename to (.*)\n$', line2 or '')
             if not line2 or not line2m:
-                die('Expected a "rename to" line')
+                die('Expected "rename to" line')
             yield {
                 'op': 'rename',
                 'left': linem[1],
                 'right': line2m[1],
                 }
             continue
-        if(m({'unified': r'^[-+ ].*', 'hintful': r'^[-+ _#<>].*'}[mode], line)):
-           die('Hunk content without header')
+        if(m({'unified': r'^[-+ ].*\n$', 'hintful': r'^[-+ _#<>].*\n$'}[mode], line)):
+            die(f'Hunk content without header: {line}')
         linem = m(r'^index ([0-9a-f]{7,})\.\.([0-9a-f]{7,}) +([0-7]{6})\n$', line)
         if(linem):
             yield {
@@ -64,20 +71,30 @@ def parseDiff(inputLines, mode):
                 'left': linem[1],
                 'right': linem[2],
                 'mode': linem[3],
-            }
+                }
+            continue
+        linem = m(r'^index ([0-9a-f]{7,})\.\.([0-9a-f]{7,})\n$', line)
+        if(linem):
+            yield {
+                'op': 'index',
+                'left': linem[1],
+                'right': linem[2],
+                }
             continue
         linem = m(r'^(new|deleted) file mode (.*)\n$', line)
         if(linem):
+            side={'deleted': 'left', 'new': 'right'}[linem[1]]
             yield {
-                'op': f'{linem[1]}filemode',
+                'op': f'{side}filemode',
                 'mode': linem[2],
             }
             continue
-        linem = m(r'^(Reverse of: )?diff --git .*\n$', line)
+        linem = m(r'^diff --git ([^ ]+) +([^ ]+)\n$', line)
         if(linem):
             yield {
                 'op': f'difftitle',
-                'line': line,
+                'leftfile': linem[1],
+                'rightfile': linem[2],
             }
             continue
         die(f'Cannot parse line {line}')
@@ -87,7 +104,7 @@ def parseUnifiedDiff(inputLines): yield from parseDiff(glueNonewline(inputLines)
 def glueNonewline(inputLines):
     prevLine = ''
     for line in inputLines:
-        if(m('^\\.*$', line)):
+        if(m(r'^\\.*\n$', line)):
             yield prevLine + line
             prevLine = ''
         else:
@@ -100,7 +117,7 @@ def glueNonewline(inputLines):
 def parseUnifiedHunk(header, inputLines):
     headerm = m(r'^@@( +)-([0-9]+)(,[0-9]+)?( +)\+([0-9]+)(,[0-9]+)?( +)@@(.*)\n$', header)
     if(not headerm):
-        die('Corrupt hunk header')
+        die(f'Corrupt unified hunk header: {header}')
     ws1 = headerm[1]
     leftstartlineraw = headerm[2]
     leftlinecountraw = headerm[3]
@@ -111,8 +128,8 @@ def parseUnifiedHunk(header, inputLines):
     comment = headerm[8]
     leftstartline = int(leftstartlineraw)
     rightstartline = int(rightstartlineraw)
-    leftlinecount = int(leftlinecountraw[1:] if leftlinecountraw else '0')
-    rightlinecount = int(rightlinecountraw[1:] if rightlinecountraw else '0')
+    leftlinecount = int(leftlinecountraw[1:] if leftlinecountraw else '1')
+    rightlinecount = int(rightlinecountraw[1:] if rightlinecountraw else '1')
     yield {
         'op': 'beginhunk',
         'ws1': ws1,
@@ -128,10 +145,16 @@ def parseUnifiedHunk(header, inputLines):
         'leftlinecount': leftlinecount,
         'rightlinecount': rightlinecount,
     }
+    def nextLine():
+        try:
+            line = next(inputLines)
+            return line
+        except StopIteration:
+            die('End of file in middle of hunk')
     while(0 < leftlinecount or 0 < rightlinecount):
         if(leftlinecount < 0 or rightlinecount < 0):
             die('Corrupt hunk line count')
-        line = next(inputLines)
+        line = nextLine()
         if not line:
             die('Incomplete hunk')
         linem = m(r'^([-+ ])(.*)\n\\ .*\n$', line) or m(r'^([-+ ])(.*\n)$', line)
@@ -145,7 +168,7 @@ def parseUnifiedHunk(header, inputLines):
             if(prefix in '- '): leftlinecount-=1
             if(prefix in '+ '): rightlinecount-=1
             continue
-        die('Corrupt hunk')
+        die(f'Corrupt hunk, contained line: {line}')
     yield {
         'op': 'endhunk',
     }
@@ -153,7 +176,7 @@ def parseUnifiedHunk(header, inputLines):
 def parseHintfulHunk(header, inputLines):
     headerm = m(r'^@@( +)-([0-9]+)(,[0-9]+)?( +)\(([0-9]+)\)( +)\+([0-9]+)(,[0-9]+)?( +)@@(.*)\n$', header)
     if(not headerm):
-        die('Corrupt hunk header')
+        die(f'Corrupt hintful hunk header: {header}')
     ws1 = headerm[1]
     leftstartlineraw = headerm[2]
     leftlinecountraw = headerm[3]
@@ -166,8 +189,8 @@ def parseHintfulHunk(header, inputLines):
     comment = headerm[10]
     leftstartline = int(leftstartlineraw)
     rightstartline = int(rightstartlineraw)
-    leftlinecount = int(leftlinecountraw[1:] if leftlinecountraw else '0')
-    rightlinecount = int(rightlinecountraw[1:] if rightlinecountraw else '0')
+    leftlinecount = int(leftlinecountraw[1:] if leftlinecountraw else '1')
+    rightlinecount = int(rightlinecountraw[1:] if rightlinecountraw else '1')
     hunklinecount = int(hunklinecountraw)
     yield {
         'op': 'beginhunk',
@@ -187,9 +210,14 @@ def parseHintfulHunk(header, inputLines):
         'rightlinecount': rightlinecount,
         'hunklinecount': hunklinecount,
     }
-    linestoread=hunklinecount
-    for line in inputLines:
-        linestoread-=1
+    def nextLine():
+        try:
+            line = next(inputLines)
+            return line
+        except StopIteration:
+            die('End of file in middle of hunk')
+    for index in range(hunklinecount):
+        line = nextLine()
         linem = m(r'^([-+ _#])(.*)([$\\])\n$', line) or m(r'^([<>])(.*)\n$', line)
         if not linem:
             die(f'Corrupt hunk: Strange line: {line}')
@@ -212,8 +240,6 @@ def parseHintfulHunk(header, inputLines):
             }
             continue
         die('This should never happen')
-    if(not linestoread==0):
-        die('Corrupt hunk')
     yield {
         'op': 'endhunk',
     }
@@ -227,7 +253,7 @@ def formatHintfulDiff(inputObjs):
                 obj['ws1'] or ' ',
                 '-',
                 obj['leftstartlineraw'],
-                obj['leftlinecountraw'],
+                obj['leftlinecountraw'] or '',
                 obj['ws2'] or ' ',
                 '(',
                 obj['hunklinecountraw'],
@@ -235,7 +261,7 @@ def formatHintfulDiff(inputObjs):
                 obj['ws3'] or ' ',
                 '+',
                 obj['rightstartlineraw'],
-                obj['rightlinecountraw'],
+                obj['rightlinecountraw'] or '',
                 (obj['ws4'] if 'ws4' in obj else obj['ws3']) or ' ',
                 '@@',
                 obj['comment'],
@@ -261,9 +287,24 @@ def formatHintfulDiff(inputObjs):
         elif(op=='labels'):
             yield f"--- {obj['left']}\n+++ {obj['right']}\n"
         elif(op=='difftitle'):
-            yield obj['line']
+            yield f"diff --git {obj['leftfile']} {obj['rightfile']}\n"
         elif(op=='index'):
-            yield f"index {obj['left']}..{obj['right']} {obj['mode']}\n"
+            if('mode' in obj):
+                yield f"index {obj['left']}..{obj['right']} {obj['mode']}\n"
+            else:
+                yield f"index {obj['left']}..{obj['right']}\n"
+        elif(op.endswith('filemode')):
+            yield from [
+                {'leftfilemode': 'deleted', 'rightfilemode': 'new'}[op],
+                ' file mode ',
+                obj['mode'],
+                '\n',
+            ]
+        elif(op=='similarity-index'):
+            yield f"similarity index {obj['similarity-index']}\n"
+        elif(op=='rename'):
+            yield f"rename from {obj['left']}\n"
+            yield f"rename to {obj['right']}\n"
         else:
             die(f'formatHintfulDiff cannot process operation {op}')
 
@@ -365,11 +406,11 @@ def formatUnifiedDiff(inputObjs):
                 obj['ws1'] or ' ',
                 '-',
                 obj['leftstartlineraw'],
-                obj['leftlinecountraw'],
+                obj['leftlinecountraw'] or '',
                 obj['ws2'] or ' ',
                 '+',
                 obj['rightstartlineraw'],
-                obj['rightlinecountraw'],
+                obj['rightlinecountraw'] or '',
                 (obj['ws4'] if 'ws4' in obj else obj['ws3']) or ' ',
                 '@@',
                 obj['comment'],
@@ -385,9 +426,24 @@ def formatUnifiedDiff(inputObjs):
         elif(op in ['labels']):
             yield f"--- {obj['left']}\n+++ {obj['right']}\n"
         elif(op=='difftitle'):
-            yield obj['line']
+            yield f"diff --git {obj['leftfile']} {obj['rightfile']}\n"
         elif(op=='index'):
-            yield f"index {obj['left']}..{obj['right']} {obj['mode']}\n"
+            if('mode' in obj):
+                yield f"index {obj['left']}..{obj['right']} {obj['mode']}\n"
+            else:
+                yield f"index {obj['left']}..{obj['right']}\n"
+        elif(op.endswith('filemode')):
+            yield from [
+                {'leftfilemode': 'deleted', 'rightfilemode': 'new'}[op],
+                ' file mode ',
+                obj['mode'],
+                '\n',
+            ]
+        elif(op=='similarity-index'):
+            yield f"similarity index {obj['similarity-index']}\n"
+        elif(op=='rename'):
+            yield f"rename from {obj['left']}\n"
+            yield f"rename to {obj['right']}\n"
         else:
             die(f'formatUnifiedDiff cannot process operation {op}')
 
@@ -398,10 +454,7 @@ def switchleftright(text):
 def reverse(inputObjs):
     for obj in inputObjs:
         op=obj['op']
-        if(op=='difftitle'):
-            line=obj['line']
-            yield {**obj, 'line': line[12:] if line.startswith('Reverse of: ') else 'Reverse of: ' + line}
-        elif(m('^(left|right).*$', op)):
+        if(m(r'^(left|right).*$', op)):
             yield {**obj, 'op': switchleftright(op)}
         else:
             sendobj={}
@@ -475,7 +528,7 @@ def validateHunks(inputObjs):
     for obj in inputObjs:
         op=obj['op']
         sidesallowed=(True, True)
-        if(not op in ['difftitle', 'hunk', 'index', 'labels']):
+        if(not op in ['difftitle', 'hunk', 'index', 'labels', 'leftfilemode', 'rightfilemode', 'similarity-index', 'rename']):
             die(f'Operation {op} not allowed outside hunk')
         if(op=='hunk'):
             sidesallowed = validateHunk(obj, sidesallowed)

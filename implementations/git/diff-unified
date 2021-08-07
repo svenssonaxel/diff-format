@@ -1,2 +1,22 @@
 #!/usr/bin/env bash
-/usr/bin/git diff --no-index --no-prefix -a -- "$1" "$2"
+set -e
+(
+    cd "$1"
+    git init
+    git add .
+    git commit -m 1
+)>/dev/null
+mv "$1"/.git "$2"/
+(
+    cd "$2"
+    git add .
+    git commit -m 2
+)>/dev/null
+cd "$2"
+if git diff --exit-code HEAD^; then
+    echo No difference
+    exit 0
+else
+    rm -rf .git
+    exit 1
+fi
