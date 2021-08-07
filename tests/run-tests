@@ -108,12 +108,12 @@ class TestAll(unittest.TestCase):
                     testtype = match[3]
                     if(testtype=='unified.diff'):
                         self.doTestUnifiedDiff(filename, file1, file2)
-                    elif(testtype=='iterative.diff'):
-                        self.doTestIterativeDiff(filename, file1, file2)
+                    elif(testtype=='hintful.diff'):
+                        self.doTestHintfulDiff(filename, file1, file2)
                     elif(testtype=='invalid.unified.diff'):
                         self.doTestInvalidUnifiedDiff(filename)
-                    elif(testtype=='invalid.iterative.diff'):
-                        self.doTestInvalidIterativeDiff(filename)
+                    elif(testtype=='invalid.hintful.diff'):
+                        self.doTestInvalidHintfulDiff(filename)
                     else:
                         self.fail(f"Don't know what to do with file {filename}")
                 continue
@@ -131,11 +131,11 @@ class TestAll(unittest.TestCase):
             with self.nestTest(f'Validate unified diff using {validateUnifiedDiff}'):
                 self.sh(f'cat {diffFile} | {validateUnifiedDiff}')
         if not m('^.*converted-to\.unified\.diff.*$', diffFile):
-            for convertUnifiedDiffToIterativeDiff in implementationsOf['convert-unified-diff-to-iterative-diff']:
-                with self.nestTest(f'Convert to iterative using {convertUnifiedDiffToIterativeDiff}'):
+            for convertUnifiedDiffToHintfulDiff in implementationsOf['convert-unified-diff-to-hintful-diff']:
+                with self.nestTest(f'Convert to hintful using {convertUnifiedDiffToHintfulDiff}'):
                     with filesInTmpDir([diffFile, file1, file2]):
-                        self.sh(f'cat {diffFile} | {convertUnifiedDiffToIterativeDiff} > {diffFile}.converted-to.iterative.diff')
-                        self.doTestIterativeDiff(f'{diffFile}.converted-to.iterative.diff', file1, file2)
+                        self.sh(f'cat {diffFile} | {convertUnifiedDiffToHintfulDiff} > {diffFile}.converted-to.hintful.diff')
+                        self.doTestHintfulDiff(f'{diffFile}.converted-to.hintful.diff', file1, file2)
         with self.nestTest(f'Forward patch'):
             with filesInTmpDir([diffFile, file1, file2]):
                 self.assertNotSame(file1, file2)
@@ -159,40 +159,40 @@ class TestAll(unittest.TestCase):
                                 self.assertSame(diffFile, f'{diffFile}.reversed.reversed')
                         with self.nestTest(f'Use reverse diff file as diff file'):
                             self.doTestUnifiedDiff(f'{diffFile}.reversed', file2, file1)
-        with self.nestTest(f'Unified diff should be invalid as iterative diff'):
-            self.doTestInvalidIterativeDiff(diffFile)
-    def doTestIterativeDiff(self, diffFile, file1, file2):
-        for validateIterativeDiff in implementationsOf['validate-iterative-diff']:
-            with self.nestTest(f'Validate iterative diff using {validateIterativeDiff}'):
-                self.sh(f'cat {diffFile} | {validateIterativeDiff}')
-        if not m('^.*converted-to\.iterative\.diff.*$', diffFile):
-            for convertIterativeDiffToUnifiedDiff in implementationsOf['convert-iterative-diff-to-unified-diff']:
-                with self.nestTest(f'Convert to unified using {convertIterativeDiffToUnifiedDiff}'):
+        with self.nestTest(f'Unified diff should be invalid as hintful diff'):
+            self.doTestInvalidHintfulDiff(diffFile)
+    def doTestHintfulDiff(self, diffFile, file1, file2):
+        for validateHintfulDiff in implementationsOf['validate-hintful-diff']:
+            with self.nestTest(f'Validate hintful diff using {validateHintfulDiff}'):
+                self.sh(f'cat {diffFile} | {validateHintfulDiff}')
+        if not m('^.*converted-to\.hintful\.diff.*$', diffFile):
+            for convertHintfulDiffToUnifiedDiff in implementationsOf['convert-hintful-diff-to-unified-diff']:
+                with self.nestTest(f'Convert to unified using {convertHintfulDiffToUnifiedDiff}'):
                     with filesInTmpDir([diffFile, file1, file2]):
-                        self.sh(f'cat {diffFile} | {convertIterativeDiffToUnifiedDiff} > {diffFile}.converted-to.unified.diff')
+                        self.sh(f'cat {diffFile} | {convertHintfulDiffToUnifiedDiff} > {diffFile}.converted-to.unified.diff')
                         self.doTestUnifiedDiff(f'{diffFile}.converted-to.unified.diff', file1, file2)
         if not m('^.*\.reversed$', diffFile):
-            for reverseIterativeDiff in implementationsOf['reverse-iterative-diff']:
-                with self.nestTest(f'Reverse iterative diff using {reverseIterativeDiff}'):
+            for reverseHintfulDiff in implementationsOf['reverse-hintful-diff']:
+                with self.nestTest(f'Reverse hintful diff using {reverseHintfulDiff}'):
                     with filesInTmpDir([diffFile, file1, file2]):
-                        self.sh(f'cat {diffFile} | {reverseIterativeDiff} > {diffFile}.reversed')
+                        self.sh(f'cat {diffFile} | {reverseHintfulDiff} > {diffFile}.reversed')
                         with self.nestTest(f'Double reverse is noop'):
                             with filesInTmpDir([diffFile, f'{diffFile}.reversed']):
                                 self.assertNotSame(diffFile, f'{diffFile}.reversed')
-                                self.sh(f'cat {diffFile}.reversed | {reverseIterativeDiff} > {diffFile}.reversed.reversed')
+                                self.sh(f'cat {diffFile}.reversed | {reverseHintfulDiff} > {diffFile}.reversed.reversed')
                                 self.assertSame(diffFile, f'{diffFile}.reversed.reversed')
                         with self.nestTest(f'Use reverse diff file as diff file'):
-                            self.doTestIterativeDiff(f'{diffFile}.reversed', file2, file1)
-        with self.nestTest(f'Iterative diff should be invalid as unified diff'):
+                            self.doTestHintfulDiff(f'{diffFile}.reversed', file2, file1)
+        with self.nestTest(f'Hintful diff should be invalid as unified diff'):
             self.doTestInvalidUnifiedDiff(diffFile)
     def doTestInvalidUnifiedDiff(self, diffFile):
         for validateUnifiedDiff in implementationsOf['validate-unified-diff']:
             with self.nestTest(f'Make sure unified diff is invalid using {validateUnifiedDiff}'):
                 self.sh(f'cat {diffFile} | {validateUnifiedDiff}', 1)
-    def doTestInvalidIterativeDiff(self, diffFile):
-        for validateIterativeDiff in implementationsOf['validate-iterative-diff']:
-            with self.nestTest(f'Make sure iterative diff is invalid using {validateIterativeDiff}'):
-                self.sh(f'cat {diffFile} | {validateIterativeDiff}', 1)
+    def doTestInvalidHintfulDiff(self, diffFile):
+        for validateHintfulDiff in implementationsOf['validate-hintful-diff']:
+            with self.nestTest(f'Make sure hintful diff is invalid using {validateHintfulDiff}'):
+                self.sh(f'cat {diffFile} | {validateHintfulDiff}', 1)
     def doTestContentFiles(self, file1, file2):
         for diffUnified in implementationsOf['diff-unified']:
             with self.nestTest(f'Create unified diff using {diffUnified}'):

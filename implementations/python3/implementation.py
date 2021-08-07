@@ -29,7 +29,7 @@ def getInputLines():
 def parseDiff(inputLines, mode):
     for line in inputLines:
         if(m(r'^@@.*\n$', line)):
-            yield from {'unified': parseUnifiedHunk, 'iterative': parseIterativeHunk}[mode](line, inputLines)
+            yield from {'unified': parseUnifiedHunk, 'hintful': parseHintfulHunk}[mode](line, inputLines)
             continue
         linem = m(r'^--- (.*)\n$', line)
         if(linem):
@@ -55,7 +55,7 @@ def parseDiff(inputLines, mode):
                 'right': line2m[1],
                 }
             continue
-        if(m({'unified': r'^[-+ ].*', 'iterative': r'^[-+ _#<>].*'}[mode], line)):
+        if(m({'unified': r'^[-+ ].*', 'hintful': r'^[-+ _#<>].*'}[mode], line)):
            die('Hunk content without header')
         linem = m(r'^index ([0-9a-f]{7,})\.\.([0-9a-f]{7,}) +([0-7]{6})\n$', line)
         if(linem):
@@ -81,7 +81,7 @@ def parseDiff(inputLines, mode):
             }
             continue
         die(f'Cannot parse line {line}')
-def parseIterativeDiff(inputLines): yield from parseDiff(inputLines, 'iterative')
+def parseHintfulDiff(inputLines): yield from parseDiff(inputLines, 'hintful')
 def parseUnifiedDiff(inputLines): yield from parseDiff(glueNonewline(inputLines), 'unified')
 
 def glueNonewline(inputLines):
@@ -150,7 +150,7 @@ def parseUnifiedHunk(header, inputLines):
         'op': 'endhunk',
     }
 
-def parseIterativeHunk(header, inputLines):
+def parseHintfulHunk(header, inputLines):
     headerm = m(r'^@@( +)-([0-9]+)(,[0-9]+)?( +)\(([0-9]+)\)( +)\+([0-9]+)(,[0-9]+)?( +)@@(.*)\n$', header)
     if(not headerm):
         die('Corrupt hunk header')
@@ -218,7 +218,7 @@ def parseIterativeHunk(header, inputLines):
         'op': 'endhunk',
     }
 
-def formatIterativeDiff(inputObjs):
+def formatHintfulDiff(inputObjs):
     for obj in inputObjs:
         op=obj['op']
         if(op=='beginhunk'):
@@ -265,7 +265,7 @@ def formatIterativeDiff(inputObjs):
         elif(op=='index'):
             yield f"index {obj['left']}..{obj['right']} {obj['mode']}\n"
         else:
-            die(f'formatIterativeDiff cannot process operation {op}')
+            die(f'formatHintfulDiff cannot process operation {op}')
 
 def removeSnippets(inputObjs):
     leftsnippetname=''
@@ -523,25 +523,25 @@ def sink(inputObjs):
 
 def main():
     procStack={
-        'convert-iterative-diff-to-unified-diff': [
-            parseIterativeDiff,
+        'convert-hintful-diff-to-unified-diff': [
+            parseHintfulDiff,
             removeSnippets,
             collectLines,
             formatUnifiedDiff,
             output,
         ],
-        'convert-unified-diff-to-iterative-diff': [
+        'convert-unified-diff-to-hintful-diff': [
             parseUnifiedDiff,
             groupHunks,
             countLines,
             ungroupHunks,
-            formatIterativeDiff,
+            formatHintfulDiff,
             output,
         ],
-        'reverse-iterative-diff': [
-            parseIterativeDiff,
+        'reverse-hintful-diff': [
+            parseHintfulDiff,
             reverse,
-            formatIterativeDiff,
+            formatHintfulDiff,
             output,
         ],
         'reverse-unified-diff': [
@@ -550,8 +550,8 @@ def main():
             formatUnifiedDiff,
             output,
         ],
-        'validate-iterative-diff': [
-            parseIterativeDiff,
+        'validate-hintful-diff': [
+            parseHintfulDiff,
             validateSnippets,
             groupHunks,
             validateHunks,
