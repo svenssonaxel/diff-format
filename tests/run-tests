@@ -103,13 +103,13 @@ class TestAll(unittest.TestCase):
             match = m('^[0-9]+-([a-z])-([a-z])\.(.*)', filename)
             if(match):
                 with self.nestTest(f'Test file {filename}'):
-                    file1 = match[1]
-                    file2 = match[2]
+                    v1 = match[1]
+                    v2 = match[2]
                     testtype = match[3]
                     if(testtype=='unified.diff'):
-                        self.doTestUnifiedDiff(filename, file1, file2)
+                        self.doTestUnifiedDiff(filename, v1, v2)
                     elif(testtype=='hintful.diff'):
-                        self.doTestHintfulDiff(filename, file1, file2)
+                        self.doTestHintfulDiff(filename, v1, v2)
                     elif(testtype=='invalid.unified.diff'):
                         self.doTestInvalidUnifiedDiff(filename)
                     elif(testtype=='invalid.hintful.diff'):
@@ -126,31 +126,31 @@ class TestAll(unittest.TestCase):
                 continue
             self.fail(f"Don't know what to do with file {filename}")
     # Functions for testing
-    def doTestUnifiedDiff(self, diffFile, file1, file2):
+    def doTestUnifiedDiff(self, diffFile, v1, v2):
         for validateUnifiedDiff in implementationsOf['validate-unified-diff']:
             with self.nestTest(f'Validate unified diff using {validateUnifiedDiff}'):
                 self.sh(f'cat {diffFile} | {validateUnifiedDiff}')
         if not m('^.*converted-to\.unified\.diff.*$', diffFile):
             for convertUnifiedDiffToHintfulDiff in implementationsOf['convert-unified-diff-to-hintful-diff']:
                 with self.nestTest(f'Convert to hintful using {convertUnifiedDiffToHintfulDiff}'):
-                    with filesInTmpDir([diffFile, file1, file2]):
+                    with filesInTmpDir([diffFile, v1, v2]):
                         self.sh(f'cat {diffFile} | {convertUnifiedDiffToHintfulDiff} > {diffFile}.converted-to.hintful.diff')
-                        self.doTestHintfulDiff(f'{diffFile}.converted-to.hintful.diff', file1, file2)
+                        self.doTestHintfulDiff(f'{diffFile}.converted-to.hintful.diff', v1, v2)
         with self.nestTest(f'Forward patch'):
-            with filesInTmpDir([diffFile, file1, file2]):
-                self.assertNotSame(file1, file2)
-                self.sh(f'cp -pr {file1} {file1}.bu')
-                self.assertSame(file1, f'{file1}.bu')
+            with filesInTmpDir([diffFile, v1, v2]):
+                self.assertNotSame(v1, v2)
+                self.sh(f'cp -pr {v1} {v1}.bu')
+                self.assertSame(v1, f'{v1}.bu')
                 for patchUnified in implementationsOf['patch-unified']:
                     with self.nestTest(f'Patch unified using {patchUnified}'):
-                        with filesInTmpDir([diffFile, file1, file2, f'{file1}.bu']):
-                            self.sh(f'{patchUnified} {file1} < {diffFile}')
-                            self.assertSame(file1, file2)
-                            self.assertNotSame(file1, f'{file1}.bu')
+                        with filesInTmpDir([diffFile, v1, v2, f'{v1}.bu']):
+                            self.sh(f'{patchUnified} {v1} < {diffFile}')
+                            self.assertSame(v1, v2)
+                            self.assertNotSame(v1, f'{v1}.bu')
         if not m('^.*\.reversed$', diffFile):
             for reverseUnifiedDiff in implementationsOf['reverse-unified-diff']:
                 with self.nestTest(f'Reverse unified diff using {reverseUnifiedDiff}'):
-                    with filesInTmpDir([diffFile, file1, file2]):
+                    with filesInTmpDir([diffFile, v1, v2]):
                         self.sh(f'cat {diffFile} | {reverseUnifiedDiff} > {diffFile}.reversed')
                         with self.nestTest(f'Double reverse is noop'):
                             with filesInTmpDir([diffFile, f'{diffFile}.reversed']):
@@ -158,23 +158,23 @@ class TestAll(unittest.TestCase):
                                 self.sh(f'cat {diffFile}.reversed | {reverseUnifiedDiff} > {diffFile}.reversed.reversed')
                                 self.assertSame(diffFile, f'{diffFile}.reversed.reversed')
                         with self.nestTest(f'Use reverse diff file as diff file'):
-                            self.doTestUnifiedDiff(f'{diffFile}.reversed', file2, file1)
+                            self.doTestUnifiedDiff(f'{diffFile}.reversed', v2, v1)
         with self.nestTest(f'Unified diff should be invalid as hintful diff'):
             self.doTestInvalidHintfulDiff(diffFile)
-    def doTestHintfulDiff(self, diffFile, file1, file2):
+    def doTestHintfulDiff(self, diffFile, v1, v2):
         for validateHintfulDiff in implementationsOf['validate-hintful-diff']:
             with self.nestTest(f'Validate hintful diff using {validateHintfulDiff}'):
                 self.sh(f'cat {diffFile} | {validateHintfulDiff}')
         if not m('^.*converted-to\.hintful\.diff.*$', diffFile):
             for convertHintfulDiffToUnifiedDiff in implementationsOf['convert-hintful-diff-to-unified-diff']:
                 with self.nestTest(f'Convert to unified using {convertHintfulDiffToUnifiedDiff}'):
-                    with filesInTmpDir([diffFile, file1, file2]):
+                    with filesInTmpDir([diffFile, v1, v2]):
                         self.sh(f'cat {diffFile} | {convertHintfulDiffToUnifiedDiff} > {diffFile}.converted-to.unified.diff')
-                        self.doTestUnifiedDiff(f'{diffFile}.converted-to.unified.diff', file1, file2)
+                        self.doTestUnifiedDiff(f'{diffFile}.converted-to.unified.diff', v1, v2)
         if not m('^.*\.reversed$', diffFile):
             for reverseHintfulDiff in implementationsOf['reverse-hintful-diff']:
                 with self.nestTest(f'Reverse hintful diff using {reverseHintfulDiff}'):
-                    with filesInTmpDir([diffFile, file1, file2]):
+                    with filesInTmpDir([diffFile, v1, v2]):
                         self.sh(f'cat {diffFile} | {reverseHintfulDiff} > {diffFile}.reversed')
                         with self.nestTest(f'Double reverse is noop'):
                             with filesInTmpDir([diffFile, f'{diffFile}.reversed']):
@@ -182,7 +182,7 @@ class TestAll(unittest.TestCase):
                                 self.sh(f'cat {diffFile}.reversed | {reverseHintfulDiff} > {diffFile}.reversed.reversed')
                                 self.assertSame(diffFile, f'{diffFile}.reversed.reversed')
                         with self.nestTest(f'Use reverse diff file as diff file'):
-                            self.doTestHintfulDiff(f'{diffFile}.reversed', file2, file1)
+                            self.doTestHintfulDiff(f'{diffFile}.reversed', v2, v1)
         with self.nestTest(f'Hintful diff should be invalid as unified diff'):
             self.doTestInvalidUnifiedDiff(diffFile)
     def doTestInvalidUnifiedDiff(self, diffFile):
@@ -193,17 +193,17 @@ class TestAll(unittest.TestCase):
         for validateHintfulDiff in implementationsOf['validate-hintful-diff']:
             with self.nestTest(f'Make sure hintful diff is invalid using {validateHintfulDiff}'):
                 self.sh(f'cat {diffFile} | {validateHintfulDiff}', 1)
-    def doTestContentFiles(self, file1, file2):
+    def doTestContentFiles(self, v1, v2):
         for diffUnified in implementationsOf['diff-unified']:
             with self.nestTest(f'Create unified diff using {diffUnified}'):
-                with filesInTmpDir([file1, file2]):
-                    self.sh(f'{diffUnified} {file1} {file2} > generated_diff-{file1}-{file2}-unified.diff', 1)
-                    self.doTestUnifiedDiff(f'generated_diff-{file1}-{file2}-unified.diff', file1, file2)
+                with filesInTmpDir([v1, v2]):
+                    self.sh(f'{diffUnified} {v1} {v2} > generated_diff-{v1}-{v2}-unified.diff', 1)
+                    self.doTestUnifiedDiff(f'generated_diff-{v1}-{v2}-unified.diff', v1, v2)
     # Utility
-    def assertSame(self, file1, file2):
-        self.sh(f'diff -r {file1} {file2}', 0)
-    def assertNotSame(self, file1, file2):
-        self.sh(f'diff -r {file1} {file2} > /dev/null', 1)
+    def assertSame(self, v1, v2):
+        self.sh(f'diff -r {v1} {v2}', 0)
+    def assertNotSame(self, v1, v2):
+        self.sh(f'diff -r {v1} {v2} > /dev/null', 1)
     def sh(self, cmd, expectedExitCode=0):
         self.assertEqual(expectedExitCode, os.waitstatus_to_exitcode(os.system(f'set -e; {cmd}')))
 
