@@ -153,3 +153,7 @@ Test directories and what they focus on, files and what they test:
   - `18-o-b.invalid.hintful.diff`:
     - Labels present in prefixed but not unprefixed file.
     - Based on `04-o-b.compat.diff`.
+- `004/`:
+  Binary files.
+  - `01-a-b.hintful.diff`:
+    - Binary files handled as text.

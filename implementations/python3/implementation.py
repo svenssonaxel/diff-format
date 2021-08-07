@@ -742,6 +742,9 @@ def sink(inputObjs):
         pass
 
 def main():
+    # Abusing latin1 encoding lets us handle several encodings and also binary the same way
+    sys.stdin.reconfigure(encoding='latin1')
+    sys.stdout.reconfigure(encoding='latin1')
     procStack={
         'convert-compat-diff-to-hintful-diff': [
             groupHunks,

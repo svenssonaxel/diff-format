@@ -15,7 +15,7 @@ mv "$1"/.git "$2"/
     git commit -m 2
 )>/dev/null
 cd "$2"
-if git diff --exit-code HEAD^; then
+if git diff -a --exit-code HEAD^; then
     exit 0
 else
     rm -rf .git
