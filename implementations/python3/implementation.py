@@ -98,8 +98,8 @@ def parseDiff(inputLines, mode):
             }
             continue
         die(f'Cannot parse line {line}')
-def parseHintfulDiff(inputLines): yield from parseDiff(inputLines, 'hintful')
 def parseUnifiedDiff(inputLines): yield from parseDiff(glueNonewline(inputLines), 'unified')
+def parseHintfulDiff(inputLines): yield from parseDiff(inputLines, 'hintful')
 
 def glueNonewline(inputLines):
     prevLine = ''
@@ -113,6 +113,13 @@ def glueNonewline(inputLines):
             prevLine = line
     if prevLine:
         yield prevLine
+
+def nextLine(inputLines):
+    try:
+        line = next(inputLines)
+        return line
+    except StopIteration:
+        die('End of file in middle of hunk')
 
 def parseUnifiedHunk(header, inputLines):
     headerm = m(r'^@@( +)-([0-9]+)(,[0-9]+)?( +)\+([0-9]+)(,[0-9]+)?( +)@@(.*)\n$', header)
@@ -145,16 +152,10 @@ def parseUnifiedHunk(header, inputLines):
         'leftlinecount': leftlinecount,
         'rightlinecount': rightlinecount,
     }
-    def nextLine():
-        try:
-            line = next(inputLines)
-            return line
-        except StopIteration:
-            die('End of file in middle of hunk')
     while(0 < leftlinecount or 0 < rightlinecount):
         if(leftlinecount < 0 or rightlinecount < 0):
             die('Corrupt hunk line count')
-        line = nextLine()
+        line = nextLine(inputLines)
         if not line:
             die('Incomplete hunk')
         linem = m(r'^([-+ ])(.*)\n\\ .*\n$', line) or m(r'^([-+ ])(.*\n)$', line)
@@ -210,14 +211,8 @@ def parseHintfulHunk(header, inputLines):
         'rightlinecount': rightlinecount,
         'hunklinecount': hunklinecount,
     }
-    def nextLine():
-        try:
-            line = next(inputLines)
-            return line
-        except StopIteration:
-            die('End of file in middle of hunk')
     for index in range(hunklinecount):
-        line = nextLine()
+        line = nextLine(inputLines)
         linem = m(r'^([-+ _#])(.*)([$\\])\n$', line) or m(r'^([<>])(.*)\n$', line)
         if not linem:
             die(f'Corrupt hunk: Strange line: {line}')
@@ -243,6 +238,61 @@ def parseHintfulHunk(header, inputLines):
     yield {
         'op': 'endhunk',
     }
+
+def formatCommonLine(obj):
+        op=obj['op']
+        if(op=='endhunk'):
+            pass
+        elif(op in ['labels']):
+            yield f"--- {obj['left']}\n+++ {obj['right']}\n"
+        elif(op=='difftitle'):
+            yield f"diff --git {obj['leftfile']} {obj['rightfile']}\n"
+        elif(op=='index'):
+            if('mode' in obj):
+                yield f"index {obj['left']}..{obj['right']} {obj['mode']}\n"
+            else:
+                yield f"index {obj['left']}..{obj['right']}\n"
+        elif(op.endswith('filemode')):
+            yield from [
+                {'leftfilemode': 'deleted', 'rightfilemode': 'new'}[op],
+                ' file mode ',
+                obj['mode'],
+                '\n',
+            ]
+        elif(op=='similarity-index'):
+            yield f"similarity index {obj['similarity-index']}\n"
+        elif(op=='rename'):
+            yield f"rename from {obj['left']}\n"
+            yield f"rename to {obj['right']}\n"
+        else:
+            die(f'formatCommonLine cannot process operation {op}')
+
+def formatUnifiedDiff(inputObjs):
+    for obj in inputObjs:
+        op=obj['op']
+        if(op=='beginhunk'):
+            yield from [
+                '@@',
+                obj['ws1'] or ' ',
+                '-',
+                obj['leftstartlineraw'],
+                obj['leftlinecountraw'] or '',
+                obj['ws2'] or ' ',
+                '+',
+                obj['rightstartlineraw'],
+                obj['rightlinecountraw'] or '',
+                (obj['ws4'] if 'ws4' in obj else obj['ws3']) or ' ',
+                '@@',
+                obj['comment'],
+                '\n',
+            ]
+        elif(op.endswith('content')):
+            yield {'leftcontent': '-', 'rightcontent': '+', 'bothcontent': ' ', 'bothlowprioritycontent': ' '}[op]
+            yield obj['content']
+            if not obj['content'].endswith('\n'):
+                yield '\n\\ No newline at end of file\n'
+        else:
+            yield from formatCommonLine(obj)
 
 def formatHintfulDiff(inputObjs):
     for obj in inputObjs:
@@ -282,31 +332,8 @@ def formatHintfulDiff(inputObjs):
                 obj['name'],
                 '\n',
             ]
-        elif(op=='endhunk'):
-            pass
-        elif(op=='labels'):
-            yield f"--- {obj['left']}\n+++ {obj['right']}\n"
-        elif(op=='difftitle'):
-            yield f"diff --git {obj['leftfile']} {obj['rightfile']}\n"
-        elif(op=='index'):
-            if('mode' in obj):
-                yield f"index {obj['left']}..{obj['right']} {obj['mode']}\n"
-            else:
-                yield f"index {obj['left']}..{obj['right']}\n"
-        elif(op.endswith('filemode')):
-            yield from [
-                {'leftfilemode': 'deleted', 'rightfilemode': 'new'}[op],
-                ' file mode ',
-                obj['mode'],
-                '\n',
-            ]
-        elif(op=='similarity-index'):
-            yield f"similarity index {obj['similarity-index']}\n"
-        elif(op=='rename'):
-            yield f"rename from {obj['left']}\n"
-            yield f"rename to {obj['right']}\n"
         else:
-            die(f'formatHintfulDiff cannot process operation {op}')
+            yield from formatCommonLine(obj)
 
 def removeSnippets(inputObjs):
     leftsnippetname=''
@@ -397,60 +424,11 @@ def collectLines(inputObjs):
         else:
             die(f'collectLines cannot process operation {op}')
 
-def formatUnifiedDiff(inputObjs):
-    for obj in inputObjs:
-        op=obj['op']
-        if(op=='beginhunk'):
-            yield from [
-                '@@',
-                obj['ws1'] or ' ',
-                '-',
-                obj['leftstartlineraw'],
-                obj['leftlinecountraw'] or '',
-                obj['ws2'] or ' ',
-                '+',
-                obj['rightstartlineraw'],
-                obj['rightlinecountraw'] or '',
-                (obj['ws4'] if 'ws4' in obj else obj['ws3']) or ' ',
-                '@@',
-                obj['comment'],
-                '\n',
-            ]
-        elif(op.endswith('content')):
-            yield {'leftcontent': '-', 'rightcontent': '+', 'bothcontent': ' ', 'bothlowprioritycontent': ' '}[op]
-            yield obj['content']
-            if not obj['content'].endswith('\n'):
-                yield '\n\\ No newline at end of file\n'
-        elif(op=='endhunk'):
-            pass
-        elif(op in ['labels']):
-            yield f"--- {obj['left']}\n+++ {obj['right']}\n"
-        elif(op=='difftitle'):
-            yield f"diff --git {obj['leftfile']} {obj['rightfile']}\n"
-        elif(op=='index'):
-            if('mode' in obj):
-                yield f"index {obj['left']}..{obj['right']} {obj['mode']}\n"
-            else:
-                yield f"index {obj['left']}..{obj['right']}\n"
-        elif(op.endswith('filemode')):
-            yield from [
-                {'leftfilemode': 'deleted', 'rightfilemode': 'new'}[op],
-                ' file mode ',
-                obj['mode'],
-                '\n',
-            ]
-        elif(op=='similarity-index'):
-            yield f"similarity index {obj['similarity-index']}\n"
-        elif(op=='rename'):
-            yield f"rename from {obj['left']}\n"
-            yield f"rename to {obj['right']}\n"
-        else:
-            die(f'formatUnifiedDiff cannot process operation {op}')
-
 def switchleftright(text):
     if(text.startswith('left')): return 'right'+text[4:]
     if(text.startswith('right')): return 'left'+text[5:]
     return text
+
 def reverse(inputObjs):
     for obj in inputObjs:
         op=obj['op']
@@ -533,6 +511,7 @@ def validateHunks(inputObjs):
         if(op=='hunk'):
             sidesallowed = validateHunk(obj, sidesallowed)
         yield obj
+
 def validateHunk(hunk, sidesallowed):
     state={
         'leftsnippetname': '',
