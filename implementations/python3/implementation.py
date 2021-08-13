@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import functools, sys, re
+import functools, os, sys, re
 
 def p(*data):
     print(*data, sep='', end='')
@@ -122,30 +122,24 @@ def nextLine(inputLines):
         die('End of file in middle of hunk')
 
 def parseUnifiedHunk(header, inputLines):
-    headerm = m(r'^@@( +)-([0-9]+)(,[0-9]+)?( +)\+([0-9]+)(,[0-9]+)?( +)@@(.*)\n$', header)
+    headerm = m(r'^@@ +-([0-9]+)(,[0-9]+)? +\+([0-9]+)(,[0-9]+)? +@@(.*)\n$', header)
     if(not headerm):
         die(f'Corrupt unified hunk header: {header}')
-    ws1 = headerm[1]
-    leftstartlineraw = headerm[2]
-    leftlinecountraw = headerm[3]
-    ws2 = headerm[4]
-    rightstartlineraw = headerm[5]
-    rightlinecountraw = headerm[6]
-    ws3 = headerm[7]
-    comment = headerm[8]
+    leftstartlineraw = headerm[1]
+    leftlinecountraw = headerm[2]
+    rightstartlineraw = headerm[3]
+    rightlinecountraw = headerm[4]
+    comment = headerm[5]
     leftstartline = int(leftstartlineraw)
     rightstartline = int(rightstartlineraw)
     leftlinecount = int(leftlinecountraw[1:] if leftlinecountraw else '1')
     rightlinecount = int(rightlinecountraw[1:] if rightlinecountraw else '1')
     yield {
         'op': 'beginhunk',
-        'ws1': ws1,
         'leftstartlineraw': leftstartlineraw,
         'leftlinecountraw': leftlinecountraw,
-        'ws2': ws2,
         'rightstartlineraw': rightstartlineraw,
         'rightlinecountraw': rightlinecountraw,
-        'ws3': ws3,
         'comment': comment,
         'leftstartline': leftstartline,
         'rightstartline': rightstartline,
@@ -175,19 +169,15 @@ def parseUnifiedHunk(header, inputLines):
     }
 
 def parseHintfulHunk(header, inputLines):
-    headerm = m(r'^@@( +)-([0-9]+)(,[0-9]+)?( +)\(([0-9]+)\)( +)\+([0-9]+)(,[0-9]+)?( +)@@(.*)\n$', header)
+    headerm = m(r'^@@ +-([0-9]+)(,[0-9]+)? +\(([0-9]+)\) +\+([0-9]+)(,[0-9]+)? +@@(.*)\n$', header)
     if(not headerm):
         die(f'Corrupt hintful hunk header: {header}')
-    ws1 = headerm[1]
-    leftstartlineraw = headerm[2]
-    leftlinecountraw = headerm[3]
-    ws2 = headerm[4]
-    hunklinecountraw = headerm[5]
-    ws3 = headerm[6]
-    rightstartlineraw = headerm[7]
-    rightlinecountraw = headerm[8]
-    ws4 = headerm[9]
-    comment = headerm[10]
+    leftstartlineraw = headerm[1]
+    leftlinecountraw = headerm[2]
+    hunklinecountraw = headerm[3]
+    rightstartlineraw = headerm[4]
+    rightlinecountraw = headerm[5]
+    comment = headerm[6]
     leftstartline = int(leftstartlineraw)
     rightstartline = int(rightstartlineraw)
     leftlinecount = int(leftlinecountraw[1:] if leftlinecountraw else '1')
@@ -195,15 +185,11 @@ def parseHintfulHunk(header, inputLines):
     hunklinecount = int(hunklinecountraw)
     yield {
         'op': 'beginhunk',
-        'ws1': ws1,
         'leftstartlineraw': leftstartlineraw,
         'leftlinecountraw': leftlinecountraw,
-        'ws2': ws2,
         'hunklinecountraw': hunklinecountraw,
-        'ws3': ws3,
         'rightstartlineraw': rightstartlineraw,
         'rightlinecountraw': rightlinecountraw,
-        'ws4': ws4,
         'comment': comment,
         'leftstartline': leftstartline,
         'rightstartline': rightstartline,
@@ -274,17 +260,13 @@ def formatUnifiedDiff(inputObjs):
         op=obj['op']
         if(op=='beginhunk'):
             yield from [
-                '@@',
-                obj['ws1'] or ' ',
-                '-',
+                '@@ -',
                 obj['leftstartlineraw'],
                 obj['leftlinecountraw'] or '',
-                obj['ws2'] or ' ',
-                '+',
+                ' +',
                 obj['rightstartlineraw'],
                 obj['rightlinecountraw'] or '',
-                (obj['ws4'] if 'ws4' in obj else obj['ws3']) or ' ',
-                '@@',
+                ' @@',
                 obj['comment'],
                 '\n',
             ]
@@ -301,21 +283,15 @@ def formatHintfulDiff(inputObjs):
         op=obj['op']
         if(op=='beginhunk'):
             yield from [
-                '@@',
-                obj['ws1'] or ' ',
-                '-',
+                '@@ -',
                 obj['leftstartlineraw'],
                 obj['leftlinecountraw'] or '',
-                obj['ws2'] or ' ',
-                '(',
+                ' (',
                 obj['hunklinecountraw'],
-                ')',
-                obj['ws3'] or ' ',
-                '+',
+                ') +',
                 obj['rightstartlineraw'],
                 obj['rightlinecountraw'] or '',
-                (obj['ws4'] if 'ws4' in obj else obj['ws3']) or ' ',
-                '@@',
+                ' @@',
                 obj['comment'],
                 '\n',
             ]
@@ -503,7 +479,7 @@ def ungroupHunks(inputObjs):
         else:
             yield obj
 
-def countLines(inputObjs):
+def recountLines(inputObjs):
     for obj in inputObjs:
         if(obj['op']=='hunk'):
             hunklinecount = len(obj['contents'])
@@ -578,7 +554,7 @@ def main():
         'convert-unified-diff-to-hintful-diff': [
             parseUnifiedDiff,
             groupHunks,
-            countLines,
+            recountLines,
             ungroupHunks,
             formatHintfulDiff,
             output,
@@ -608,7 +584,7 @@ def main():
             validateHunks,
             sink,
         ],
-    }[sys.argv[1]]
+    }[os.path.basename(sys.argv[0])]
     def reducer(reduced, next_generator):
         return next_generator(reduced)
     functools.reduce(reducer, procStack, getInputLines())

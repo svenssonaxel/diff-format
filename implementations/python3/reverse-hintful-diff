@@ -1,2 +1,1 @@
-#!/usr/bin/env bash
-`dirname "$0"`/implementation.py `basename "$0"`
+implementation.py
