@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 set -e
+[ -e "$1"/.git ] && exit 2
+[ -e "$2"/.git ] && exit 2
 (
     cd "$1"
     git init
@@ -14,7 +16,6 @@ mv "$1"/.git "$2"/
 )>/dev/null
 cd "$2"
 if git diff --exit-code HEAD^; then
-    echo No difference
     exit 0
 else
     rm -rf .git
