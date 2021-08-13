@@ -31,10 +31,10 @@ def parseDiff(inputLines, mode):
         if(m(r'^@@.*\n$', line)):
             yield from {'unified': parseUnifiedHunk, 'hintful': parseHintfulHunk}[mode](line, inputLines)
             continue
-        linem = m(r'^--- (.*)\n$', line)
+        linem = m(r'^--- ([^\r]*)\r*\n$', line)
         if(linem):
             line2 = next(inputLines)
-            line2m = m(r'^\+\+\+ (.*)\n$', line2 or '')
+            line2m = m(r'^\+\+\+ ([^\r]*)\r*\n$', line2 or '')
             if not line2 or not line2m:
                 die('Expected a +++ line')
             yield {
@@ -43,17 +43,17 @@ def parseDiff(inputLines, mode):
                 'right': line2m[1],
                 }
             continue
-        linem = m(r'^similarity index ([0-9]+%)\n$', line)
+        linem = m(r'^similarity index ([0-9]+%)\r*\n$', line)
         if(linem):
             yield {
                 'op': 'similarity-index',
                 'similarity-index': linem[1],
                 }
             continue
-        linem = m(r'^rename from (.*)\n$', line)
+        linem = m(r'^rename from ([^\r]*)\r*\n$', line)
         if(linem):
             line2 = next(inputLines)
-            line2m = m(r'^rename to (.*)\n$', line2 or '')
+            line2m = m(r'^rename to ([^\r]*)\r*\n$', line2 or '')
             if not line2 or not line2m:
                 die('Expected "rename to" line')
             yield {
@@ -64,7 +64,7 @@ def parseDiff(inputLines, mode):
             continue
         if(m({'unified': r'^[-+ ].*\n$', 'hintful': r'^[-+ _#<>].*\n$'}[mode], line)):
             die(f'Hunk content without header: {line}')
-        linem = m(r'^index ([0-9a-f]{7,})\.\.([0-9a-f]{7,}) +([0-7]{6})\n$', line)
+        linem = m(r'^index ([0-9a-f]{7,})\.\.([0-9a-f]{7,}) +([0-7]{6})\r*\n$', line)
         if(linem):
             yield {
                 'op': 'index',
@@ -73,7 +73,7 @@ def parseDiff(inputLines, mode):
                 'mode': linem[3],
                 }
             continue
-        linem = m(r'^index ([0-9a-f]{7,})\.\.([0-9a-f]{7,})\n$', line)
+        linem = m(r'^index ([0-9a-f]{7,})\.\.([0-9a-f]{7,})\r*\n$', line)
         if(linem):
             yield {
                 'op': 'index',
@@ -81,7 +81,7 @@ def parseDiff(inputLines, mode):
                 'right': linem[2],
                 }
             continue
-        linem = m(r'^(new|deleted) file mode (.*)\n$', line)
+        linem = m(r'^(new|deleted) file mode ([^\r]*)\r*\n$', line)
         if(linem):
             side={'deleted': 'left', 'new': 'right'}[linem[1]]
             yield {
@@ -89,7 +89,7 @@ def parseDiff(inputLines, mode):
                 'mode': linem[2],
             }
             continue
-        linem = m(r'^diff --git ([^ ]+) +([^ ]+)\n$', line)
+        linem = m(r'^diff --git ([^ ]+) +([^ \r]+)\r*\n$', line)
         if(linem):
             yield {
                 'op': f'difftitle',
@@ -213,19 +213,21 @@ def parseHintfulHunk(header, inputLines):
     }
     for index in range(hunklinecount):
         line = nextLine(inputLines)
-        linem = m(r'^([-+ _#])(.*)([$\\])\n$', line) or m(r'^([<>])(.*)\n$', line)
+        linem = m(r'^([-+ _#])(.*)([$\\])(\r*)\n$', line) or m(r'^([<>])([^\r]*)(\r*)\n$', line)
         if not linem:
             die(f'Corrupt hunk: Strange line: {line}')
         prefix = linem[1]
         content = linem[2]
-        nlmarker = linem[3] if len(linem)==4 else ''
-        contentWithNl = f'{content}\n' if nlmarker=='$' else content
-        if(prefix in '-+ ' and not nlmarker):
-            die('Corrupt hunk: Missing newline marker')
+        nlmarker = linem[3] if len(linem)==5 else ''
+        cr = linem[4] if len(linem)==5 else linem[3]
+        if(nlmarker=='$'):
+            if(content.endswith('\r')):
+                die('CR character not allowed before $ newline marker')
+            content += f'{cr}\n'
         if(prefix in '-+ _#'):
             yield {
                 'op': {'-': 'leftcontent', '+': 'rightcontent', ' ': 'bothcontent', '_': 'bothlowprioritycontent', '#': 'ignorecontent'}[prefix],
-                'content': contentWithNl,
+                'content': content,
             }
             continue
         if(prefix in '<>'):
@@ -321,8 +323,10 @@ def formatHintfulDiff(inputObjs):
             yield {'leftcontent': '-', 'rightcontent': '+', 'bothcontent': ' ', 'bothlowprioritycontent': '_', 'ignorecontent': '#'}[op]
             content = obj['content']
             if content.endswith('\n'):
-                yield content[:-1]
-                yield '$\n'
+                contentm = m(r'^(.*[^\r])?(\r*\n)$', content)
+                yield contentm[1] or ''
+                yield '$'
+                yield contentm[2]
             else:
                 yield content
                 yield '\\\n'
@@ -346,7 +350,7 @@ def removeSnippets(inputObjs):
         elif(op=='rightcontent'):
             if(rightsnippetname==''):
                 yield obj
-        elif(op=='bothcontent'):
+        elif(op in ['bothcontent', 'bothlowprioritycontent']):
             if(leftsnippetname=='' and rightsnippetname==''):
                 yield obj
             elif(leftsnippetname==''):
@@ -363,7 +367,7 @@ def removeSnippets(inputObjs):
            (leftsnippetname!='' or
             rightsnippetname!='')):
             die('Hunk ended inside named snippet')
-        elif(op in ['labels', 'beginhunk', 'endhunk']):
+        elif(op in ['difftitle', 'index', 'labels', 'leftfilemode', 'rightfilemode', 'similarity-index', 'rename', 'beginhunk', 'endhunk']):
             yield obj
         else:
             die(f'removeSnippets cannot process operation {op}')
@@ -414,12 +418,17 @@ def collectLines(inputObjs):
                         'op': var,
                         'content': state[var],
                     }
+                    state[var]=''
                     if(var in ['leftcontent', 'bothcontent']):
                         state['leftended']=True
                     if(var in ['rightcontent', 'bothcontent']):
                         state['rightended']=True
             yield obj
-        elif(op in ['labels', 'beginhunk']):
+        elif(op=='difftitle'):
+            state['leftended']=False
+            state['rightended']=False
+            yield obj
+        elif(op in ['index', 'labels', 'leftfilemode', 'rightfilemode', 'similarity-index', 'rename', 'beginhunk']):
             yield obj
         else:
             die(f'collectLines cannot process operation {op}')
@@ -503,11 +512,13 @@ def countLines(inputObjs):
             yield obj
 
 def validateHunks(inputObjs):
+    sidesallowed=(True, True)
     for obj in inputObjs:
         op=obj['op']
-        sidesallowed=(True, True)
         if(not op in ['difftitle', 'hunk', 'index', 'labels', 'leftfilemode', 'rightfilemode', 'similarity-index', 'rename']):
             die(f'Operation {op} not allowed outside hunk')
+        if(op=='difftitle'):
+            sidesallowed=(True, True)
         if(op=='hunk'):
             sidesallowed = validateHunk(obj, sidesallowed)
         yield obj
@@ -530,6 +541,8 @@ def validateHunk(hunk, sidesallowed):
         elif(op.endswith('content')):
             for side in ['left', 'right']:
                 if(not state[f'{side}snippetname'] and op in [f'{side}content', 'bothcontent', 'bothlowprioritycontent']):
+                    if(state[f'{side}content'].endswith('\r') and m(r'^\r*\n$', obj['content'])):
+                        die(r'\r*\n sequence must not be split.')
                     state[f'{side}content']+=obj['content']
                     if(state[f'{side}content'] and not state[f'{side}allowed']):
                         die('Content on {side} side after a hunk ending without newline')

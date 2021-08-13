@@ -1,0 +1,8 @@
+diff --git a/add-cr b/add-cr
+index ac3d045..3069f0b 100644
+--- a/add-cr
++++ b/add-cr
+@@ -1 (3) +1 @@
+ add-cr-content\
+-$
++$

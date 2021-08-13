@@ -127,6 +127,7 @@ class TestAll(unittest.TestCase):
             self.fail(f"Don't know what to do with file {filename}")
     # Functions for testing
     def doTestUnifiedDiff(self, diffFile, v1, v2):
+        self.doTestUnifiedDiffForwardPatch(diffFile, v1, v2)
         for validateUnifiedDiff in implementationsOf['validate-unified-diff']:
             with self.nestTest(f'Validate unified diff using {validateUnifiedDiff}'):
                 self.sh(f'cat {diffFile} | {validateUnifiedDiff}')
@@ -136,32 +137,35 @@ class TestAll(unittest.TestCase):
                     with filesInTmpDir([diffFile, v1, v2]):
                         self.sh(f'cat {diffFile} | {convertUnifiedDiffToHintfulDiff} > {diffFile}.converted-to.hintful.diff')
                         self.doTestHintfulDiff(f'{diffFile}.converted-to.hintful.diff', v1, v2)
-        with self.nestTest(f'Forward patch'):
-            with filesInTmpDir([diffFile, v1, v2]):
-                self.assertNotSame(v1, v2)
-                self.sh(f'cp -pr {v1} {v1}.bu')
-                self.assertSame(v1, f'{v1}.bu')
-                for patchUnified in implementationsOf['patch-unified']:
-                    with self.nestTest(f'Patch unified using {patchUnified}'):
-                        with filesInTmpDir([diffFile, v1, v2, f'{v1}.bu']):
-                            self.sh(f'{patchUnified} {v1} < {diffFile}')
-                            self.assertSame(v1, v2)
-                            self.assertNotSame(v1, f'{v1}.bu')
         if not m('^.*\.reversed$', diffFile):
             for reverseUnifiedDiff in implementationsOf['reverse-unified-diff']:
                 with self.nestTest(f'Reverse unified diff using {reverseUnifiedDiff}'):
                     with filesInTmpDir([diffFile, v1, v2]):
                         self.sh(f'cat {diffFile} | {reverseUnifiedDiff} > {diffFile}.reversed')
                         with self.nestTest(f'Double reverse is noop'):
-                            with filesInTmpDir([diffFile, f'{diffFile}.reversed']):
+                            with filesInTmpDir([diffFile, f'{diffFile}.reversed', v1, v2]):
                                 self.assertNotSame(diffFile, f'{diffFile}.reversed')
                                 self.sh(f'cat {diffFile}.reversed | {reverseUnifiedDiff} > {diffFile}.reversed.reversed')
-                                self.assertSame(diffFile, f'{diffFile}.reversed.reversed')
+                                self.doTestUnifiedDiffForwardPatch(f'{diffFile}.reversed.reversed', v1, v2)
                         with self.nestTest(f'Use reverse diff file as diff file'):
                             self.doTestUnifiedDiff(f'{diffFile}.reversed', v2, v1)
         with self.nestTest(f'Unified diff should be invalid as hintful diff'):
             self.doTestInvalidHintfulDiff(diffFile)
+        if(not self.shBool(f"grep -ERq '^\\\\ No newline' {diffFile}")):
+            for [explanation, PRE] in [
+                    ['Add CR', r's@\n@\r\n@'],
+                    ['Add CRCR', r's@\n@\r\r\n@'],
+                    ['Remove CR', r's@\r\n@\n@'],
+                    ['Remove CR twice', r's@\r\n@\n@;s@\r\n@\n@'],
+            ]:
+                with self.nestTest(f'Convert newline: {explanation}'):
+                    with filesInTmpDir([diffFile, v1, v2]):
+                        newDiffFile=f'{diffFile}.newlineconverted.diff'
+                        self.sh(f'cp {diffFile} {newDiffFile}')
+                        self.mapFiles(f"perl -pe '{PRE}'", [newDiffFile, v1, v2])
+                        self.doTestUnifiedDiffForwardPatch(newDiffFile, v1, v2)
     def doTestHintfulDiff(self, diffFile, v1, v2):
+        self.doTestHintfulDiffForwardPatch(diffFile, v1, v2)
         for validateHintfulDiff in implementationsOf['validate-hintful-diff']:
             with self.nestTest(f'Validate hintful diff using {validateHintfulDiff}'):
                 self.sh(f'cat {diffFile} | {validateHintfulDiff}')
@@ -177,14 +181,44 @@ class TestAll(unittest.TestCase):
                     with filesInTmpDir([diffFile, v1, v2]):
                         self.sh(f'cat {diffFile} | {reverseHintfulDiff} > {diffFile}.reversed')
                         with self.nestTest(f'Double reverse is noop'):
-                            with filesInTmpDir([diffFile, f'{diffFile}.reversed']):
+                            with filesInTmpDir([diffFile, f'{diffFile}.reversed', v1, v2]):
                                 self.assertNotSame(diffFile, f'{diffFile}.reversed')
                                 self.sh(f'cat {diffFile}.reversed | {reverseHintfulDiff} > {diffFile}.reversed.reversed')
-                                self.assertSame(diffFile, f'{diffFile}.reversed.reversed')
+                                self.doTestHintfulDiffForwardPatch(f'{diffFile}.reversed.reversed', v1, v2)
                         with self.nestTest(f'Use reverse diff file as diff file'):
                             self.doTestHintfulDiff(f'{diffFile}.reversed', v2, v1)
         with self.nestTest(f'Hintful diff should be invalid as unified diff'):
             self.doTestInvalidUnifiedDiff(diffFile)
+        for [explanation, PRE] in [
+                ['Add CR', r's@\n@\r\n@'],
+                ['Add CRCR', r's@\n@\r\r\n@'],
+                ['Remove CR', r's@\r\n@\n@'],
+                ['Remove CR twice', r's@\r\n@\n@;s@\r\n@\n@'],
+        ]:
+            with self.nestTest(f'Convert newline: {explanation}'):
+                with filesInTmpDir([diffFile, v1, v2]):
+                    newDiffFile=f'{diffFile}.newlineconverted.diff'
+                    self.sh(f'cp {diffFile} {newDiffFile}')
+                    self.mapFiles(f"perl -pe '{PRE}'", [newDiffFile, v1, v2])
+                    self.doTestHintfulDiffForwardPatch(newDiffFile, v1, v2)
+    def doTestUnifiedDiffForwardPatch(self, diffFile, v1, v2):
+        with self.nestTest(f'Test unified forward patch'):
+            with filesInTmpDir([diffFile, v1, v2]):
+                self.assertNotSame(v1, v2)
+                self.sh(f'cp -pr {v1} {v1}.bu')
+                self.assertSame(v1, f'{v1}.bu')
+                for patchUnified in implementationsOf['patch-unified']:
+                    with self.nestTest(f'Patch unified using {patchUnified}'):
+                        with filesInTmpDir([diffFile, v1, v2, f'{v1}.bu']):
+                            self.sh(f'{patchUnified} {v1} < {diffFile}')
+                            self.assertSame(v1, v2)
+                            self.assertNotSame(v1, f'{v1}.bu')
+    def doTestHintfulDiffForwardPatch(self, diffFile, v1, v2):
+        with filesInTmpDir([diffFile, v1, v2]):
+            convertHintfulDiffToUnifiedDiff = implementationsOf['convert-hintful-diff-to-unified-diff'][0]
+            with self.nestTest(f'Convert to unified using {convertHintfulDiffToUnifiedDiff}'):
+                self.sh(f'cat {diffFile} | {convertHintfulDiffToUnifiedDiff} > {diffFile}.converted-to.unified.diff')
+                self.doTestUnifiedDiffForwardPatch(f'{diffFile}.converted-to.unified.diff', v1, v2)
     def doTestInvalidUnifiedDiff(self, diffFile):
         for validateUnifiedDiff in implementationsOf['validate-unified-diff']:
             with self.nestTest(f'Make sure unified diff is invalid using {validateUnifiedDiff}'):
@@ -206,6 +240,20 @@ class TestAll(unittest.TestCase):
         self.sh(f'diff -u -r {v1} {v2} > /dev/null', 1)
     def sh(self, cmd, expectedExitCode=0):
         self.assertEqual(expectedExitCode, os.waitstatus_to_exitcode(os.system(f'set -e; {cmd}')))
+    def shBool(self, cmd):
+        ec = os.waitstatus_to_exitcode(os.system(f'set -e; {cmd}'))
+        assert ec in [0, 1]
+        return {0: True, 1: False}[ec]
+    def mapFiles(self, cmd, files):
+        for filename in files:
+            if(os.path.isfile(filename)):
+                self.sh(f'cat {filename} | {cmd} > {filename}.tmp.processing; mv {filename}.tmp.processing {filename};')
+            elif(os.path.isdir(filename)):
+                files2 = os.listdir(filename)
+                with inDir(filename):
+                    self.mapFiles(cmd, files2)
+            else:
+                die(f'Cannot map file node {os.path.join(os.getcwd(),filename)}')
 
 if m('^.*[ !"#$&\'()*+;<>?\\^`{|}~].*$', os.getcwd()):
     die(f'Running from a weird path.')
