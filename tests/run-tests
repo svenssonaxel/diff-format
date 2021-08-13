@@ -60,13 +60,19 @@ def red(text):
         return text
 
 class TestAll(unittest.TestCase):
+
     # Count asserts
+
     _assertCount=0
+
     def assertEqual(self, expected, actual):
         self._assertCount+=1
         super().assertEqual(expected, actual)
+
     # Pretty nested tests
+
     _nestTestMsgs=[]
+
     @contextlib.contextmanager
     def nestTest(self, msg):
         self._nestTestMsgs.append(msg)
@@ -83,8 +89,14 @@ class TestAll(unittest.TestCase):
                 print(f"{' │' * (len(msgs) - 1)} ╰╴{red('NOT SUCCESSFUL!')} TEST PATH:")
                 for m in msgs:
                     print(f"{' │' * (len(msgs) - 1)}   ✦ {m}")
+                if(sys.stdin.buffer.isatty() and sys.stdout.buffer.isatty()):
+                    print(f"{' │' * (len(msgs) - 1)}   ➔ Current dir: {os.getcwd()}")
+                    print("pausing…")
+                    sys.stdin.readline()
             self._nestTestMsgs.pop()
+
     # Will be executed by unittest.main
+
     def test_all(self):
         testdirs=os.listdir()
         testdirs.sort()
@@ -94,7 +106,9 @@ class TestAll(unittest.TestCase):
                     with inDir(testdir):
                         self.doTestThisDir()
         print(f'(asserts={self._assertCount})')
+
     # Run all tests in one directory
+
     def doTestThisDir(self):
         contentfiles = []
         files=os.listdir()
@@ -125,7 +139,9 @@ class TestAll(unittest.TestCase):
                 contentfiles.append(filename)
                 continue
             self.fail(f"Don't know what to do with file {filename}")
+
     # Functions for testing
+
     def doTestUnifiedDiff(self, diffFile, v1, v2):
         self.doTestUnifiedDiffForwardPatch(diffFile, v1, v2)
         for validateUnifiedDiff in implementationsOf['validate-unified-diff']:
@@ -164,6 +180,7 @@ class TestAll(unittest.TestCase):
                         self.sh(f'cp {diffFile} {newDiffFile}')
                         self.mapFiles(f"perl -pe '{PRE}'", [newDiffFile, v1, v2])
                         self.doTestUnifiedDiffForwardPatch(newDiffFile, v1, v2)
+
     def doTestHintfulDiff(self, diffFile, v1, v2):
         self.doTestHintfulDiffForwardPatch(diffFile, v1, v2)
         for validateHintfulDiff in implementationsOf['validate-hintful-diff']:
@@ -201,6 +218,7 @@ class TestAll(unittest.TestCase):
                     self.sh(f'cp {diffFile} {newDiffFile}')
                     self.mapFiles(f"perl -pe '{PRE}'", [newDiffFile, v1, v2])
                     self.doTestHintfulDiffForwardPatch(newDiffFile, v1, v2)
+
     def doTestUnifiedDiffForwardPatch(self, diffFile, v1, v2):
         with self.nestTest(f'Test unified forward patch'):
             with filesInTmpDir([diffFile, v1, v2]):
@@ -213,37 +231,47 @@ class TestAll(unittest.TestCase):
                             self.sh(f'{patchUnified} {v1} < {diffFile}')
                             self.assertSame(v1, v2)
                             self.assertNotSame(v1, f'{v1}.bu')
+
     def doTestHintfulDiffForwardPatch(self, diffFile, v1, v2):
         with filesInTmpDir([diffFile, v1, v2]):
             convertHintfulDiffToUnifiedDiff = implementationsOf['convert-hintful-diff-to-unified-diff'][0]
             with self.nestTest(f'Convert to unified using {convertHintfulDiffToUnifiedDiff}'):
                 self.sh(f'cat {diffFile} | {convertHintfulDiffToUnifiedDiff} > {diffFile}.converted-to.unified.diff')
                 self.doTestUnifiedDiffForwardPatch(f'{diffFile}.converted-to.unified.diff', v1, v2)
+
     def doTestInvalidUnifiedDiff(self, diffFile):
         for validateUnifiedDiff in implementationsOf['validate-unified-diff']:
             with self.nestTest(f'Make sure unified diff is invalid using {validateUnifiedDiff}'):
-                self.sh(f'cat {diffFile} | {validateUnifiedDiff}', 1)
+                self.sh(f'cat {diffFile} | {validateUnifiedDiff} 2>/dev/null', 1)
+
     def doTestInvalidHintfulDiff(self, diffFile):
         for validateHintfulDiff in implementationsOf['validate-hintful-diff']:
             with self.nestTest(f'Make sure hintful diff is invalid using {validateHintfulDiff}'):
-                self.sh(f'cat {diffFile} | {validateHintfulDiff}', 1)
+                self.sh(f'cat {diffFile} | {validateHintfulDiff} 2>/dev/null', 1)
+
     def doTestContentFiles(self, v1, v2):
         for diffUnified in implementationsOf['diff-unified']:
             with self.nestTest(f'Create unified diff using {diffUnified}'):
                 with filesInTmpDir([v1, v2]):
                     self.sh(f'{diffUnified} {v1} {v2} > generated_diff-{v1}-{v2}-unified.diff', 1)
                     self.doTestUnifiedDiff(f'generated_diff-{v1}-{v2}-unified.diff', v1, v2)
+
     # Utility
+
     def assertSame(self, v1, v2):
         self.sh(f'diff -u -r {v1} {v2}', 0)
+
     def assertNotSame(self, v1, v2):
         self.sh(f'diff -u -r {v1} {v2} > /dev/null', 1)
+
     def sh(self, cmd, expectedExitCode=0):
         self.assertEqual(expectedExitCode, os.waitstatus_to_exitcode(os.system(f'set -e; {cmd}')))
+
     def shBool(self, cmd):
         ec = os.waitstatus_to_exitcode(os.system(f'set -e; {cmd}'))
         assert ec in [0, 1]
         return {0: True, 1: False}[ec]
+
     def mapFiles(self, cmd, files):
         for filename in files:
             if(os.path.isfile(filename)):

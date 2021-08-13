@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 cd "$1"
-git init
+git init -q
 git add .
 git apply --whitespace=nowarn -p1 -
 rm -rf .git
