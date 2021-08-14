@@ -1,0 +1,8 @@
+{
+  "name": "luhn",
+  "version": "0.1.0",
+  "description": "Luhn test library",
+  "scripts": {
+    "test": "node luhn.test.js"
+  }
+}

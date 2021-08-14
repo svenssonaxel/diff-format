@@ -124,10 +124,14 @@ class TestAll(unittest.TestCase):
                         self.doTestDiff(filename, v1, v2, 'unified')
                     elif(testtype=='hintful.diff'):
                         self.doTestDiff(filename, v1, v2, 'hintful')
+                    elif(testtype=='compat.diff'):
+                        self.doTestDiff(filename, v1, v2, 'compat')
                     elif(testtype=='invalid.unified.diff'):
                         self.doTestInvalidDiff(filename, 'unified')
                     elif(testtype=='invalid.hintful.diff'):
                         self.doTestInvalidDiff(filename, 'hintful')
+                    elif(testtype=='invalid.compat.diff'):
+                        self.doTestInvalidDiff(filename, 'compat')
                     else:
                         self.fail(f"Don't know what to do with file {filename}")
                 continue
@@ -143,17 +147,28 @@ class TestAll(unittest.TestCase):
     # Functions for testing
 
     def doTestDiff(self, diffFile, v1, v2, mode):
-        othermode={'hintful': 'unified', 'unified': 'hintful'}[mode]
-        self.doTestDiffForwardPatch(diffFile, v1, v2, mode)
+        # Validate diff file
         for validateDiff in implementationsOf[f'validate-{mode}-diff']:
             with self.nestTest(f'Validate {mode} diff using {validateDiff}'):
                 self.sh(f'cat {diffFile} | {validateDiff}')
-        if not m(f'^.*converted-to\.{mode}\.diff.*$', diffFile):
-            for convertDiff in implementationsOf[f'convert-{mode}-diff-to-{othermode}-diff']:
-                with self.nestTest(f'Convert to {othermode} using {convertDiff}'):
-                    with filesInTmpDir([diffFile, v1, v2]):
-                        self.sh(f'cat {diffFile} | {convertDiff} > {diffFile}.converted-to.{othermode}.diff')
-                        self.doTestDiff(f'{diffFile}.converted-to.{othermode}.diff', v1, v2, othermode)
+        # For compat and unified format, try patching
+        if(mode in ['compat', 'unified']):
+            self.doTestDiffForwardPatch(diffFile, v1, v2, mode)
+        # A compat format diff should always be able to be treated as hintful or unified
+        if(mode=='compat'):
+            for othermode in ['hintful', 'unified']:
+                with self.nestTest(f'Interpret this compat diff as if it was in {othermode} format'):
+                    self.doTestDiff(diffFile, v1, v2, othermode)
+        # Test converting to the other diff formats
+        if not m(r'^.*converted-to\..*$', diffFile):
+            for othermode in ['compat', 'hintful', 'unified']:
+                if(mode==othermode): continue
+                for convertDiff in implementationsOf[f'convert-{mode}-diff-to-{othermode}-diff']:
+                    with self.nestTest(f'Convert to {othermode} using {convertDiff}'):
+                        with filesInTmpDir([diffFile, v1, v2]):
+                            self.sh(f'cat {diffFile} | {convertDiff} > {diffFile}.converted-to.{othermode}.diff')
+                            self.doTestDiff(f'{diffFile}.converted-to.{othermode}.diff', v1, v2, othermode)
+        # Test reversing
         if not m('^.*\.reversed$', diffFile):
             for reverseDiff in implementationsOf[f'reverse-{mode}-diff']:
                 with self.nestTest(f'Reverse {mode} diff using {reverseDiff}'):
@@ -166,10 +181,8 @@ class TestAll(unittest.TestCase):
                                 self.doTestDiffForwardPatch(f'{diffFile}.reversed.reversed', v1, v2, mode)
                         with self.nestTest(f'Use reverse diff file as diff file'):
                             self.doTestDiff(f'{diffFile}.reversed', v2, v1, mode)
-        with self.nestTest(f'{mode} diff should be invalid as {othermode} diff'):
-            self.doTestInvalidDiff(diffFile, othermode)
-        if(mode=='hintful' or
-           (mode=='unified' and not self.shBool(f"grep -ERq '^\\\\ No newline' {diffFile}"))):
+        # If no `\ No newline` lines are found, test newline conversions
+        if(not self.shBool(f"grep -ERq '^\\|?\\\\ No newline' {diffFile}")):
             for [explanation, PRE] in [
                     ['Add CR', r's@\n@\r\n@'],
                     ['Add CRCR', r's@\n@\r\r\n@'],
@@ -181,12 +194,16 @@ class TestAll(unittest.TestCase):
                         newDiffFile=f'{diffFile}.newlineconverted.diff'
                         self.sh(f'cp {diffFile} {newDiffFile}')
                         self.mapFiles(f"perl -pe '{PRE}'", [newDiffFile, v1, v2])
+                        # Validity should be preserved over newline conversions
+                        for validateDiff in implementationsOf[f'validate-{mode}-diff']:
+                            with self.nestTest(f'Validate {mode} diff using {validateDiff}'):
+                                self.sh(f'cat {newDiffFile} | {validateDiff}')
                         self.doTestDiffForwardPatch(newDiffFile, v1, v2, mode)
 
     def doTestDiffForwardPatch(self, diffFile, v1, v2, mode):
         with self.nestTest(f'Test {mode} forward patch'):
             with filesInTmpDir([diffFile, v1, v2]):
-                if(mode=='unified'):
+                if(mode in ['compat', 'unified']):
                     self.assertNotSame(v1, v2)
                     self.sh(f'cp -pr {v1} {v1}.bu')
                     self.assertSame(v1, f'{v1}.bu')
@@ -198,14 +215,35 @@ class TestAll(unittest.TestCase):
                                 self.assertNotSame(v1, f'{v1}.bu')
                 else:
                     for convertToUnifiedDiff in implementationsOf[f'convert-{mode}-diff-to-unified-diff']:
-                        with filesInTmpDir([diffFile, v1, v2]):
-                            self.sh(f'cat {diffFile} | {convertToUnifiedDiff} > {diffFile}.converted-to.unified.diff')
-                            self.doTestDiffForwardPatch(f'{diffFile}.converted-to.unified.diff', v1, v2, 'unified')
+                        with self.nestTest(f'Convert to unified using {convertToUnifiedDiff}'):
+                            with filesInTmpDir([diffFile, v1, v2]):
+                                self.sh(f'cat {diffFile} | {convertToUnifiedDiff} > {diffFile}.converted-to.unified.diff')
+                                self.doTestDiffForwardPatch(f'{diffFile}.converted-to.unified.diff', v1, v2, 'unified')
 
     def doTestInvalidDiff(self, diffFile, mode):
         for validateDiff in implementationsOf[f'validate-{mode}-diff']:
             with self.nestTest(f'Make sure {mode} diff is invalid using {validateDiff}'):
                 self.sh(f'cat {diffFile} | {validateDiff} 2>/dev/null', 1)
+            # Validity should be preserved over newline conversions for any diff file not using the `\ No newline` syntax
+            if(not self.shBool(f"grep -ERq '^\\|?\\\\ No newline' {diffFile}")):
+                for [explanation, PRE] in [
+                        ['Add CR', r's@\n@\r\n@'],
+                        ['Add CRCR', r's@\n@\r\r\n@'],
+                        ['Remove CR', r's@\r\n@\n@'],
+                        ['Remove CR twice', r's@\r\n@\n@;s@\r\n@\n@'],
+                ]:
+                    with self.nestTest(f'Convert newline: {explanation}'):
+                        with filesInTmpDir([diffFile]):
+                            newDiffFile=f'{diffFile}.newlineconverted.diff'
+                            self.sh(f'cp {diffFile} {newDiffFile}')
+                            self.mapFiles(f"perl -pe '{PRE}'", [newDiffFile])
+                            with self.nestTest(f'Make sure {mode} diff is invalid using {validateDiff}'):
+                                self.sh(f'cat {newDiffFile} | {validateDiff} 2>/dev/null', 1)
+            # A compat format diff should always be able to be treated as hintful or unified.
+            # Hence, an invalid hintfule or unified diff must never be a valid compat diff
+            if(mode in ['hintful', 'unified']):
+                with self.nestTest(f'Interpret this {mode} diff as if it was in compat format'):
+                    self.doTestInvalidDiff(diffFile, 'compat')
 
     def doTestContentFiles(self, v1, v2):
         for diffUnified in implementationsOf['diff-unified']:

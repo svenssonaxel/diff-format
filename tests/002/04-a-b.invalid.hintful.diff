@@ -1,11 +1,8 @@
-diff --git a/split-crlf b/split-crlf
+diff --git a/delete-cr b/delete-cr
 index 458ee9d..1392cb1 100644
---- a/split-crlf
-+++ b/split-crlf
+--- a/delete-cr
++++ b/delete-cr
 @@ -1 (3) +1 @@
- abcd\
+ remove-cr-content\
 -\
-+$
-@@ -2 (2) +2 @@
--efgh\
-+$
+ $

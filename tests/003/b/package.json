@@ -1,0 +1,11 @@
+{
+  "name": "luhn",
+  "version": "0.1.0",
+  "description": "Luhn test library",
+  "scripts": {
+    "test": "npx jest"
+  },
+  "devDependencies": {
+    "jest": "27.0.6"
+  }
+}

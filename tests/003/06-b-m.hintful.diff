@@ -1,0 +1,75 @@
+|diff --git a/luhn.test.js b/luhn.test.js
+|index 2763cf7..ebb21c0 100644
+|--- a/luhn.test.js
+|+++ b/luhn.test.js
+|@@ -9,6 (7) +9,7 @@ const testCases = [
+|     {str: '0012345', result: false},$
+|     {str: '123 - ABC 45', result: false},$
+|     {str: '01.23-45Q', result: false},$
+|+    {str: '', result: false},$
+| ];$
+| $
+| for(const {str, result} of testCases){$
+diff --git a/luhn.test.js b/luhn.test.js
+index 2763cf7..ebb21c0 100644
+--- a/luhn.test.js
++++ b/luhn.test.js
+@@ -9,6 (10) +9,7 @@ const testCases = [
+     {str: '0012345', result: false},$
+     {str: '123 - ABC 45', result: false},$
+     {str: '01.23-45Q', result: false},$
++    \
++{str: '', \
++result: \
++false},$
+ ];$
+ $
+ for(const {str, result} of testCases){$
+|diff --git a/luhn.js b/luhn.js
+|index 98f8cda..88f9006 100644
+|--- a/luhn.js
+|+++ b/luhn.js
+|@@ -1,6 (19) +1,10 @@
+| function check(str) {$
+|     let sum = 0;$
+|<define digits
+|+    const digits = \
+| String(str).replace(/[^0-9]/g, '')\
+|+;$
+|<
+|+    if(digits=='') {$
+|+        return false;$
+|+    }$
+|     for(const [index, value] of \
+|>define digits
+| String(str).replace(/[^0-9]/g, '')\
+|>
+|+digits\
+| .split('').reverse().map(x => Number.parseInt(x)).entries()) {$
+|         sum += index % 2 ? [0, 2, 4, 6, 8, 1, 3, 5, 7, 9][value] : value;$
+|     }$
+|     return (sum % 10) == 0;$
+diff --git a/luhn.js b/luhn.js
+index 98f8cda..88f9006 100644
+--- a/luhn.js
++++ b/luhn.js
+@@ -1,6 (19) +1,10 @@
+ function check(str) {$
+     let sum = 0;$
+<define digits
++    const digits = \
+ String(str).replace(/[^0-9]/g, '')\
++;$
+<
++    if(digits=='') {$
++        return false;$
++    }$
+     for(const [index, value] of \
+>define digits
+ String(str).replace(/[^0-9]/g, '')\
+>
++digits\
+ .split('').reverse().map(x => Number.parseInt(x)).entries()) {$
+         sum += index % 2 ? [0, 2, 4, 6, 8, 1, 3, 5, 7, 9][value] : value;$
+     }$
+     return (sum % 10) == 0;$

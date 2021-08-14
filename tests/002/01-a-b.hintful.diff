@@ -67,7 +67,7 @@ index e8b5ac0..4f3920c 100644
 +++ b/delete-cr-without-eofeol
 @@ -1 (2) +1 @@
  delete-cr-without-eofeol-content\
--\
+-\
 diff --git a/delete-eofeol b/delete-eofeol
 index a02131d..ef0d501 100644
 --- a/delete-eofeol
