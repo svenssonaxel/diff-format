@@ -36,8 +36,8 @@ This experience is used to finalize the format.
 After the format is finalized, implement it in your project and feel free to release it.
 
 For producers such as `diff`, `git diff` and semantic diff tools you could for example
-  * Add two CLI flags, one for hintful format and one for hintful compatibility format, **or**
-  * Switch to producing hintful compatibility format by default, with a flag to switch to hintful format.
+* Add two CLI flags, one for hintful format and one for hintful compatibility format, **or**
+* Change your tool to produce hintful compatibility format by default, with a flag to switch to hintful format.
 
 For consumers such as `patch`, `git apply` and diff visualizers, you could for example
 * Extend your tool to accept hintful format since it is (almost) a superset of unified diff format, **or**
