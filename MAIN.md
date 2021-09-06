@@ -99,6 +99,8 @@ Any extended headers present in the prefixed version must also be present in the
 Any hunks present in the prefixed version must be correctly ordered and have a corresponding hunk in the unprefixed version.
 The corresponding unprefixed hunk may be expressed with a different format or in a different way, but must have matching effective content for the left- and right-hand side of the comparison.
 
+Tools designed to consume hintful diff format should prioritize the semantic information in the prefixed version of that in the unprefixed.
+
 ### Hintful compatibility format
 
 The hintful compatibility diff format is a subset of the hintful diff format, with one added restriction:
@@ -108,6 +110,8 @@ A hintful compatibility diff format file can be used as-is by tools designed to 
 
 ## Motivation
 
+### Hunk header
+### Status markers
 ### Newline handling
 
 This implies that
@@ -117,9 +121,14 @@ This implies that
 todo.
 The bane.
 The issue with too many newline delimiter standards has a destructive force / effort of invention ratio approaching that of leap seconds.
-Snippet names must not end with `\r`.
+Snippet names must not contain `\r`.
 A `\r` character that is part of a `\r*\n` sequence on either side of the comparison (old file, new file, or named snippet) can be represented only as part of a `\r*\n` sequence in the diff format file.
 
+### Named snippets
+### Hunk limits
+### Mixing hunk formats
+### Prefixed file comparisons
+### Compatibility format
 
 ## Roadmap
 
@@ -127,8 +136,7 @@ A `\r` character that is part of a `\r*\n` sequence on either side of the compar
 
 **This is where we are currently**
 
-Critique hintful diff format as soon as possible.
-Don't let it get finalized with an inherent problem.
+Critique hintful diff format as soon as possible so that it doesn't get finalized with an inherent problem.
 If you suspect a potential problem, open an issue even if you're not sure or don't have a solution.
 
 ### Step 2: Tool implementation trial and finalization
@@ -142,9 +150,9 @@ This experience is used to finalize the format.
 After the format is finalized, implement it in your project and feel free to release it.
 
 For producers such as `diff`, `git diff` and semantic diff tools you could for example
-* Add two CLI flags, one for hintful format and one for hintful compatibility format.
+* Add two CLI flags, one for hintful format and one for hintful compatibility format, **or**
 * Change your tool to produce hintful compatibility format by default, with a flag to switch to hintful format.
 
 For consumers such as `patch`, `git apply` and diff visualizers, you could for example
-* Extend your tool to accept hintful format since it is (almost) a superset of unified diff format.
+* Extend your tool to accept hintful format since it is (almost) a superset of unified diff format, **or**
 * Add a CLI flag to accept hintful format.
