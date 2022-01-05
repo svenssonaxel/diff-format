@@ -100,7 +100,7 @@ Any extended headers present in the prefixed version must also be present in the
 Any hunks present in the prefixed version must be correctly ordered and have a corresponding hunk in the unprefixed version.
 The corresponding unprefixed hunk may be expressed with a different format or in a different way, but must have matching effective content for the left- and right-hand side of the comparison.
 
-Tools designed to consume hintful diff format should prioritize the semantic information in the prefixed version of that in the unprefixed.
+Tools designed to consume hintful diff format should prioritize the semantic information in the prefixed version over that in the unprefixed.
 
 ### Hintful compatibility format
 
