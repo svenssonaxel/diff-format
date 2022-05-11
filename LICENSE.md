@@ -1,6 +1,6 @@
 # License
 
-This work is Copyright © 2021-2022 by the people listed in the `CONTRIBUTORS.md` file.
+This work is Copyright © 2021-2022 by the people listed in [CONTRIBUTORS.md](CONTRIBUTORS.md).
 It is made available to you under your choice of the following licenses:
 
 * [AFL 3.0](https://opensource.org/licenses/afl-3.0)
