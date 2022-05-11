@@ -8,8 +8,6 @@ It is made available to you under your choice of the following licenses:
 * [BSD 3-Clause](https://opensource.org/licenses/BSD-3-Clause)
 * [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
 * [CDDL 1.0](https://opensource.org/licenses/CDDL-1.0)
-* [EPL 2.0](https://opensource.org/licenses/EPL-2.0)
-* [EUPL 1.2](https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12)
 * [GPLv2](https://www.gnu.org/licenses/old-licenses/gpl-2.0.html)
 * [GPLv3](https://www.gnu.org/licenses/gpl-3.0.html)
 * [MIT](https://mit-license.org/)
@@ -17,4 +15,4 @@ It is made available to you under your choice of the following licenses:
 
 Contributors therefore submit their works under any and all of the licenses above.
 
-` SPDX-License-Identifier: AFL-3.0+ OR Apache-2.0+ OR BSD-3-Clause+ OR CC-BY-4.0+ OR CDDL-1.0+ OR EPL-2.0+ OR EUPL-1.2+ OR GPL-2.0-or-later OR MIT+ `
+` SPDX-License-Identifier: AFL-3.0+ OR Apache-2.0+ OR BSD-3-Clause+ OR CC-BY-4.0+ OR CDDL-1.0+ OR GPL-2.0-or-later OR MIT+ `
