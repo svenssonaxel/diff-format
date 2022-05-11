@@ -1,1 +1,1 @@
-Axel Svensson <mail@axelsvensson.com>
+* Axel Svensson <mail@axelsvensson.com>
