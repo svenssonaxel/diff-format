@@ -1,4 +1,13 @@
-all: 
+all: \
+ ../img/minified-js-refactor.hintful.diff.highlighted.png \
+ ../img/minified-js-refactor.hintful.diff.visualized.png \
+ ../img/minified-js-refactor.converted-from-hintful.unified.diff.highlighted.png \
+ ../img/simple-js-refactor-with-snippets.hintful.diff.visualized.png \
+ ../img/simple-python-twostep.hintful.diff.visualized.png \
+ ../img/simple-python.hintful.diff.highlighted.png \
+ ../img/simple-python.hintful.diff.visualized.png \
+ ../img/simple-python.unified.diff.highlighted.png \
+
 ../img/%.png: %.dvi ../img
 	convert \
 		-quality 300 \

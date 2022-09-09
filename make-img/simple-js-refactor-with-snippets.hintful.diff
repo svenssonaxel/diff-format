@@ -1,0 +1,36 @@
+diff --hintful a/luhn.js b/luhn.js
+--- a/luhn.js
++++ b/luhn.js
+@@ -1,7 (32) +1,10 @@
+ function check(str) {$
+   let sum = 0;$
++  const \
+<B
+ digits\
+<
++ = \
+<A
+ String(str).replace(/[^0-9]/g, "")\
+<
++;$
++  if (\
+<B
+ digits\
+<
++ == "") {$
++    return false;$
++  }$
+   for (const [index, value] of \
+>A
+ String(str)\
+-$
+-    \
+ .replace(/[^0-9]/g, "")\
+>
+<B
+ digits\
+<
+ $
+     .split("")$
+     .reverse()$
+     .map((x) => Number.parseInt(x))$

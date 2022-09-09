@@ -84,7 +84,7 @@ Test directories and what they focus on, files and what they test:
   - `05-a-b.invalid.hintful.diff`:
     One line cannot span two hunks.
 - `003/`:
-  Prefixed hunks, compatibility format, snippets.
+  Prefixed hunks, compat format, snippets.
   - `o/`:
     The original version.
     - `luhn.js`:

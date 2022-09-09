@@ -61,7 +61,7 @@ A content line consists of
 A snippet line consists of
 * A status marker, which is one of the following:
   * Right-angle (`>`) for using a named snippet for the right-hand side of the comparison, instead of the right file.
-    Subsequent content lines is a comparison following the usual syntax, using the named snippet rather than the right file for its right-hand side, until another right-angle (`>`) marker.
+    Subsequent content lines is a comparison following the usual syntax, using the named snippet rather than the right file for its right-hand side, until another right-angle (`>`) status marker.
   * Left-angle (`<`), conversely, for using a named snippet for the left-hand side of the comparison.
 * The name of the snippet.
   As a special case, if the name is the empty string, the right or left file is again used for the right- or left-hand side of the comparison, starting where it previously left off.
@@ -102,12 +102,12 @@ The corresponding unprefixed hunk may be expressed with a different format or in
 
 Tools designed to consume hintful diff format should prioritize the semantic information in the prefixed version over that in the unprefixed.
 
-### Hintful compatibility format
+### Compat format
 
-The hintful compatibility diff format is a subset of the hintful diff format, with one added restriction:
+The compat diff format is a subset of the hintful diff format, with one added restriction:
 No unprefixed hunks may use the hintful hunk format.
 
-A hintful compatibility diff format file can be used as-is by tools designed to consume unified diff format.
+A compat diff format file can be used as-is by tools designed to consume unified diff format.
 
 ## Motivation
 
@@ -126,157 +126,212 @@ The line counts for old and new files are redundant information, but they are le
 These status markers are the same as in unified diff.
 There is no reason to change them.
 
-### Status marker hash (`#`)
+### Hunk limits
 
-You've already seen in the example how to use the hash (`#`) status marker.
-The diff tool detected two changes; the addition of an enclosing `if` block, and the removal of an array element.
-The first change produces an indent increase for every line, even for the line that in the next change is deleted.
-So, while the four spaces after `#` in the diff output exists neither in the old or the new file, they do exist in an intermediate step, and are useful in visualizations for human consumption.
+Unified and hintful diff format have the same requirements for where hunks can begin and end:
+* Hunks must start at the beginning of a line
+* Hunks must end after a newline or at the end of a file.
 
-But this is just one possible use for it.
-It can also be used to insert comments and explanations for the diff output.
+There are two reasons why hintful hunks must follow the same requirements for hunk limits as unified hunks.
 
-I believe the hash (`#`) character is the one with the most established tradition for the meaning "human-only consumption".
-While in this case it technically will be processed by visualization tools, I still think the hash character is most appropriate and will be easiest to remember.
+First, this is required in order to be able to convert both ways between hintful and unified diff formats given only the diff file.
 
-### Status marker underscore (`_`)
-
-Patching tools should treat the underscore just like space, while for visualization tools it's an indication that this context is less important.
-Why is this necessary?
-Due to the combination of three of our goals, namely text compatibility, binary compatibility and meaningfully expressed changes.
-Most of the time, content that appears on the same line belong together, so showing entire lines won't hurt.
-Now, since we want the format to be able to deal with content that is not line-oriented, we must be able to express changes that do not deal with an entire line.
+Second, due to the combination of three of our goals, namely text compatibility, binary compatibility and meaningfully expressed changes.
+Since we want the format to be able to deal with content that is not line-oriented, we must be able to express changes that do not deal with an entire line.
 The obvious way to do this would be to extend the hunk header to talk about both line and column counts.
 This is unfortunately a bad idea, since there are so many contenders for the definition of "column".
 If we want to be binary compatible, the only sensible thing is to count bytes, but then we won't be text compatible since byte count can change when translating text to a different encoding.
 Counting characters is even more fraught since what constitutes a "character" depends not only on encoding, but e.g. what version of Unicode you happen to fancy.
-The only way I can think of to reliably convey a column number across systems irrespective of encoding, character set and unknown binary/text status, is this:
-Include the prefix text verbatim.
+To reliably convey a column number across systems irrespective of encoding, character set and binary/text status, it is probably necessary to include the prefix text verbatim.
 If the user then treats the old file and the patch as text files, the byte count will be correctly adjusted by the text encoding converter, and if the user treats them as binary it'll work just as well.
-The only potential problem is excessive data shown to the user in visualization tools, which is why the underscore is introduced.
-You can think of it as declaring both context and a delimiter between hunks that happen to have no newlines between them (todo clarify).
+The only potential problem is excessive data included in the diff file, which is sufficiently mitigated by the underscore status marker (see below).
 
-Imagine producing a diff of two minified script files, where all the code is on one line.
+### Status marker hash (`#`)
+
+Consider the following example:
+
+<picture>
+  <img alt="A highlighted hintful diff of a simple change to Python code" src="img/simple-python.hintful.diff.highlighted.png"/>
+</picture>
+
+Here, the diff tool detected two changes; the addition of an enclosing `if` block, and the removal of an array element.
+The first change produces an indent increase for every line, even for the line that in the next change is deleted.
+So, while the four spaces after `#` in the diff output exists neither in the old or the new file, they do exist in an intermediate step, and are useful in visualizations for human consumption:
+
+<picture>
+  <img alt="A visualization of a hintful diff of a simple change to Python code" src="img/simple-python.hintful.diff.visualized.png"/>
+</picture>
+
+But this is just one possible use for it.
+It can also be used to insert comments and explanations for the diff output, or even major reformatting.
+
+Another use case is diffing minified script files, where all the code is on one line.
 We don't tend to do that because our tools are lacking, but with this format it'd be quite doable.
-The semantically aware diff tool could, as an intermediate step, reformat the code to its heart's content, inserting newlines and spaces to make it look nice.
-Since the line containing everything was changed, the output would necessarily contain all content, but much of it could be marked with underscore so it won't bother the human.
-At the point where the actual changes occur, the diff output could contain a nice mix of minus, plus, space and hash status markers to make the visualization look nice.
-This will enable visualization tools with no semantical awareness to show semantically meaningful, unambiguous visualizations of diffs/patches.
+The syntax-aware diff tool could, as an intermediate step, reformat the code to its heart's content, inserting newlines and spaces to make it look nice.
+For example, here's a visualization of a diff between two minified JavaScript files:
+
+<picture>
+  <img alt="A visualization of a hintful diff of a simple change to minified JavaScript code" src="img/minified-js-refactor.hintful.diff.visualized.png"/>
+</picture>
+
+You see a meaningful diff with a familiar code layout and can grasp the change quite easily.
+Yet, the diff is unambiguous, true to the original and usable as a patch.
+Content lines with the hash status marker are visualized with grey background, so you know that isn't present in either old or new file.
+
+Note that the visualization tool can be generic and dumb; it needs no diff algorithm or syntax awareness.
+Only the diff tool needs to be aware of JavaScript syntax.
+
+The hash (`#`) character is probably the one with the most established tradition for the meaning "human-only consumption".
+While in this case it technically will be processed by visualization tools, the hash character will probably still be the easiest to remember.
+
+### Status marker underscore (`_`)
+
+Unified diff format has a certain number of context lines that patching tools use to find the correct place in a file to make changes.
+Tools differ in exactly how this is handled, but for example `git` will not apply a patch if the context lines do not match those in the patch.
+Human consumption is also aided by a limited number of context lines, since only content near a change need to be present in a patch file.
+
+Consider again the example above with a diff of minified JavaScript.
+Everything is on one line, so the unified diff would be quite unhelpful:
+
+<picture>
+  <img alt="A highlighted unified diff of a simple change to minified Javascript code" src="img/minified-js-refactor.converted-from-hintful.unified.diff.highlighted.png"/>
+</picture>
+
+Since a hintful hunk can only begin and end where a unified hunk can begin and end, a hintful diff must also include all content.
+This presents two problems:
+* All unchanged content becomes patch context, which can make patching more stringent than desired, i.e. cause unnecessary merge conflicts.
+* Human consumption is also hindered by a lack of focus on the changes.
+
+To address these two issues, hintful diff format has the underscore status marker.
+It indicates unchanged content that is *not* patch context.
+You can think of it as declaring a delimiter between "virtual" hunks, i.e. delimiting changes that happen to have two few newlines between them to be split into individual hunks.
+
+This will allow patching tools to differ between patch context and non-context content included for technical reasons.
+However, they may also treat the underscore just like space (and thereby opting to suffer the downside of more frequent merge conflicts).
+Visualization tools can  it's an indication that this context is less important.
+In the following visualization, content marked with underscore is displayed as grey text:
+
+<picture>
+  <img alt="A visualization of a hintful diff of a simple change to minified JavaScript code" src="img/minified-js-refactor.hintful.diff.visualized.png"/>
+</picture>
+
+And here is the raw diff file:
+
+<picture>
+  <img alt="A highlighed hintful diff of a simple change to minified JavaScript code" src="img/minified-js-refactor.hintful.diff.highlighted.png"/>
+</picture>
 
 The underscore (`_`) character has some established tradition for substituting space.
-For this reason, I suspect it will be easiest to remember.
+For this reason, it will probably be the easiest to remember.
 
 ### Newline handling
 
-The main feature is the backslash (`\`) or dollar sign (`$`) marker at the end of a content line.
-This is what will enable diff tools to express themselves more exactly, as described above.
+One of the main features of hintful format is the backslash (`\`) and dollar sign (`$`) newline markers at the end of content lines.
+This is what will enable diff tools to express themselves more exactly.
 
-Its placement, at the end of the line except optionally before any CR characters, may seem a bit awkward.
-It's not great, but I think it might be the least bad option.
-
-We could have put the newline marker at the beginning of the line, either before or after the status marker, but there are several reasons not to: todo
-* As far as I know, the backslash (`\`) and dollar sign (`$`) characters are the ones with the most established tradition for the meanings they are used in here.
-  Adhering to tradition is good for usability, and this tradition dictates that they should be at the end.
-* These markers indicate something about the newline, so putting them at the end of the line makes for more localized meaning.
+Its placement at the end of the line (except sometimes before CR characters) may seem a bit awkward.
+It's probably the least bad option, for several reasons:
+* CR characters before the backslash (`\`) newline marker are part of the content, while CR characters after it are not.
+  If the newline marker was not at the end, some other method would have to be devised to tell them apart.
+* The backslash (`\`) and dollar sign (`$`) characters are probably the ones with the most established tradition for the meanings they are used in here.
+  This tradition dictates that they should be at the end.
+* The newline markers indicate something about the newline, so putting them at the end of the line makes for more localized meaning.
 * When diffing indent sensitive languages, content lines that represent only part of a code line will frequently have trailing whitespace.
   Putting the newline marker at the end clears up that visual ambiguity.
   As an added bonus, this happens even for actual trailing whitespace, which is an improvement over unified diff.
-* Putting the newline marker first would break existing syntax highlighting for diff formats.
-  Let's not break more things than necessary.
+* Putting the newline marker first would break existing syntax highlighting for diff formats more than necessary.
 
-If we put the newline marker at the very end, we introduce a regression compared to unified diff. todo
+Despite all advantages, the newline marker does add some complexity.
 
-Despite all its advantages, the newline marker does add some complexity.
-It really is a kind of escaping, a newline is never represented by itself, but by a dollar sign (`$`) followed by newline.
-It is certainly possible to have no escaping at all, not even for newlines.
-However, such a format will not be line-based, removing the advantage for mental parsing that the meaning of each line can somewhat stand on its own.
+First, it really is a kind of escaping since a newline in content is represented by a dollar sign (`$`) followed by newline.
+It would certainly have been possible to have no escaping at all, but then the diff format could not be line-based.
+Hintful diff format is designed as a line-based format to represent non-line-based content, in order to achieve good readability and retain the best parts of unified diff format.
 
-todo
+Second, handling CR characters isn't trivial.
+Unified diff format is transparent with regard to DOS/UNIX line ending conversion.
+That is, adding (removing) a CR character before every LF character in both content and diff file, then patching the content using the diff file, then removing (adding) a CR character before every LF character in the resulting content, results in the same content as just applying the diff file.
+It is in order to retain this feature, that it is required that any occurrence of a `\r*\n` sequence in effective content be represented by a `\r*\n` sequence in the hintful diff format file.
 This implies that
 * No CR (`\r`) character may be located immediately before a dollar sign (`$`) newline marker.
 * A CR (`\r`) character may be located immediately before a backslash (`\`) newline marker only if it is not part of a `\r*\n` sequence in effective content.
 
-todo.
-The bane.
-The issue with too many newline delimiter standards has a destructive force / effort of invention ratio approaching that of leap seconds.
-Snippet names must not contain `\r`.
-A `\r` character that is part of a `\r*\n` sequence on either side of the comparison (old file, new file, or named snippet) can be represented only as part of a `\r*\n` sequence in the diff format file.
-
-todo
-Remove requirement for `\ No newline at end of file` syntax
-This syntax is merely a special case of the newline marker.
-Therefore, there is no need to keep it in the proposed format.
-To make implementation easy, consumers are allowed but not required to support it.
-Producers must not use it.
+In order to simplify the format:
+* Snippet names must not contain `\r`.
+* Producers must not, but consumers may, use the syntax `\ No newline at end of file` as used in unified hunks.
+  It is merely a special case of the backslash newline marker, and therefore there is no need to keep it.
 
 ### Named snippets
-todo
-Status marker right-angle (`>`) and left-angle (`<`)
 
-These two markers are used for indicating code movement and refactoring.
+Status markers right-angle (`>`) and left-angle (`<`) are used for indicating named snippets.
+Named snippets are used to express refactoring, including code movement and copying.
 These are very common operations, and having a diff format that can express them would be highly desirable.
-The only thing speaking against a native notation for code movement and refactoring is the design goal of an "easy to implement" format.
-Unfortunately, even though code movement syntax will complicate the format somewhat, I believe it is necessary for actual usability.
+It would for example allow tools for diffing and merging to evolve independently, and then compose into a solution that can merge a lot more advanced code changes than the toolchains of today:
+* A language-specific diff tool aware of syntax and semantics can express how code is refactored.
+* A language-independent merge tool can be enhanced to pay attention to named snippets with no regard for syntax, apply merged changes to the named snippets and resolve those changes to the correct place(s) in the code.
 
-I believe the named snippet functionality strikes a good balance between simplicity and expressive power, and I hope the added complexity won't prevent adoption.
-I believe a fairly simple library could be devised to convert this format to a unified diff, with access only to the patch file.
+The only thing speaking against a native notation for refactoring is the design goal of an "easy to implement" format.
+The named snippet functionality strikes a good balance between simplicity and expressive power, and hopefully the added complexity won't prevent adoption.
+As demonstrated in the reference implementation, it is quite simple to convert this format to unified diff format with access only to the patch file, and in the process remove all snippet information.
 
-I believe the named snippet functionality fulfills all the design goals well (except of course being compatible with existing tooling).
+The named snippet functionality seems to fulfill all the design goals well.
 * Similarly to unified diff, only a single pass is necessary to patch or reverse patch.
   This makes it rather simple to implement.
 * Mental parsing is probably as easy as it could be.
-  It's not fair to compare it to the simpler syntax of unified diff, since with that format you won't get any help at all to identify code movement or refactoring.
+  It's not fair to compare it to the simpler syntax of unified diff, since with that format you won't get any help at all to identify refactoring.
   It is a slightly more complicated syntax, but should be a lot more helpful in total.
 
 Named snippets are not necessarily found as-is in either the old or new file.
 Similarly to the hash (`#`) status marker, named snippets is a way to talk about an intermediate form that aids expression and understanding.
 This enables several new use cases:
 * It provides a generic, simple way to express both simple and complicated refactoring.
-  For example, a common expression that is refactored into a function can be expressed with two named snippets, one for the function call and one for the function body.
-  The function definition added to the new file can be expressed as a comparison with both snippets in sequence.
-  At every location where the common expression is replaced with a function call, first the expression in the old file is compared to the function body snippet, then the function call snippet is compared to the new file.
-* 3-way diff no longer requires a separate format.
-  A diff in this format can use named snippets to first provide an expressive comparison between the old file and common ancestor,
-  then an equally expressive comparison between the common ancestor and the new file.
-  todo except git patches with file renaming takes more explanation.
-  All it takes is a convention: The common ancestor consists of
-  * The contents declared by the space (` `) status marker to be the same in the old and new file
-  * The contents of all named snippets beginning with asterisk (`*`), at the point of their first use.
-* One and the same diff format file could express a series of changes to the same code, by using a string of interlinked snippets to represent intermediate states.
+  For example, a common expression that is refactored into a variable can be expressed with two named snippets, one for the variable name and one for the expression.
+  The variable definition added to the new file is expressed as a comparison with both snippets in sequence.
+  At every location where the common expression is replaced with a variable reference, first the expression in the old file is compared to the expression snippet, then the variable reference snippet is compared to the new file.
+  <picture>
+    <img alt="A visualization of a hintful diff of a simple refactoring of JavaScript code" src="img/simple-js-refactor-with-snippets.hintful.diff.visualized.png"/>
+  </picture>
+* It's probably possible to express 3-way or n-way diffs using only hintful diff format and a set of conventions.
+* One and the same diff format file could express a series of changes to the same code, by using a series of interlinked snippets to represent intermediate states.
   This could be used by an advanced diff tool to express several AST changes whose code happen to overlap, in a more legible way.
   Similarly, it could be used to express an entire set of patches that can then be viewed in context.
+  Example:
+  <picture>
+    <img alt="A highlighted hintful diff of a series of two simple changes to Python code" src="img/simple-python-twostep.hintful.diff.highlighted.png"/>
+  </picture>
 * `git diff` can already infer and output renaming of files, which is a special case of communicating a relationship between one deletion and one addition.
   Named snippets offer a way to express relationships between arbitrary changes.
-  Refactoring is not limited to one file, and moving code is not limited to two files.
+  Refactoring happen with much finer granularity than file-level.
 
 This design also makes sure to keep the following two properties of unified diff format:
-* A beautiful symmetry that makes it trivial to produce a reverse patch from any given patch.
-  Let's not destroy something so beautiful.
-* The size of the new file is bounded by the sum of the old file and the patch.
+* A symmetry that makes it trivial to produce a reverse patch from any given patch.
+* The size of the new tree is bounded by the sum of the old tree and the patch file.
   If we allowed "fast-forwarding" by ending a hunk in the middle of a named snippet, we could get exponential data growth or memory use in terms of patch size, which is undesirable.
-  Technically we could allow such fast-forwarding in the case that both sides are named snippets that have been used previously and will end in a following hunk.
-  However, this would complicate both the format and implementations far more than it's worth for what we'd gain.
-
-### Hunk limits
-
-Similarly to unified diff format, hunks must begin where the start of a line in the old file matches the start of a line in the new file, and end where a newline or end-of-file in the old file matches a newline or end-of-file in the new file.
 
 ### Mixing hunk formats
 
 The unified and hintful hunk formats can be mixed freely within a hintful diff format file.
 There are two reasons for this:
-* Backwards compatibility.
+* Backward compatibility.
+  A valid unified diff file is always a valid hintful diff file (except in a corner case explained below).
 * Readability.
+  The newline markers are useful for expressing non-line-based content, but they are unnecessarily distracting for line-based content.
+  Supporting both hunk formats provides flexibility.
 
-### Prefixed file comparisons and compatibility format
+### Prefixed file comparisons and compatibility
 
-The only purpose with prefixed file comparisons is for use in compatibility format.
-They are designed this way to make compatibility format backwards compatible with unified diff format.
+Backward compatibility means that newer tools are compatible with older formats.
+Forward compatibility means that older tools are compatible with newer formats.
 
-A hintful diff format file can include both prefixed file comparisons and unprefixed hintful hunks.
-There might not be any reason to create such a file, but it is allowed in order to make compatibility diff format a subset of the full hintful diff format.
+Backward compatibility is easily fulfilled since unified diff format is a subset of compat format, and compat format is a subset of hintful format.
+
+Forward compatibility is more involved.
+It should be possible to use e.g. the *current version* of `git apply` to apply a hintful patch.
+This is the only purpose with prefixed file comparisons and compat format.
+
+In order to make compat format a subset of the full hintful diff format, a hintful diff format file can include both prefixed file comparisons and unprefixed hintful hunks.
 This way, consumers of the format will not need to distinguish between these two formats.
 
-One might even choose to extend a consumer to read hintful format without distinguishing that from unified format.
+One might even choose to extend a consumer to read hintful format without distinguishing it from unified format.
 This choice has a small price:
-It would technically not be entirely backwards compatible since it is possible to violate the rules for prefixed file comparisons and thereby create an invalid hintful diff that is still a valid unified diff.
+It would technically not be entirely backward compatible since it is possible to violate the rules for prefixed file comparisons and thereby create an invalid hintful diff that is still a valid unified diff.
+This is however unlikely to have ever happened, since previously there has been no reason to create unified diff format files containing lines beginning with `|`.
