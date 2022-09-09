@@ -1,4 +1,4 @@
-diff --git a/luhn.test.js b/luhn.test.js
+diff --hintful a/luhn.test.js b/luhn.test.js
 index 863ee9f..2763cf7 100644
 --- a/luhn.test.js
 +++ b/luhn.test.js
@@ -25,7 +25,7 @@ index 863ee9f..2763cf7 100644
 +);$
 +    })$
  }$
-diff --git a/package.json b/package.json
+diff --hintful a/package.json b/package.json
 index e468e70..85980a5 100644
 --- a/package.json
 +++ b/package.json

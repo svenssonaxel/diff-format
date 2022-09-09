@@ -153,6 +153,21 @@ Test directories and what they focus on, files and what they test:
   - `18-o-b.invalid.hintful.diff`:
     - Labels present in prefixed but not unprefixed file.
     - Based on `04-o-b.compat.diff`.
+  - `19-o-b.invalid.hintful.diff`:
+    - Unprefixed hintful hunk after `diff --git`.
+    - Based on `01-o-b.hintful.diff`.
+  - `20-o-b.invalid.compat.diff`:
+    - Prefixed hintful hunk after `diff --git`.
+    - Based on `04-o-b.compat.diff`.
+  - `21-a-m.invalid.compat.diff`:
+    - Bad prefixed file header.
+    - Based on `04-o-b.compat.diff`.
+  - `22-a-m.invalid.compat.diff`:
+    - Bad unprefixed file header.
+    - Based on `04-o-b.compat.diff`.
+  - `23-a-m.invalid.unified.diff`:
+    - Bad unprefixed file header.
+    - Same content as `22-a-m.invalid.compat.diff`.
 - `004/`:
   Binary files.
   - `01-a-b.hintful.diff`:

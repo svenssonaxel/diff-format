@@ -1,4 +1,4 @@
-diff --git a/split-crlf b/split-crlf
+diff --hintful a/split-crlf b/split-crlf
 index 458ee9d..1392cb1 100644
 --- a/split-crlf
 +++ b/split-crlf

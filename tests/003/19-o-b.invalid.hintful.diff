@@ -1,4 +1,4 @@
-diff --hintful a/luhn.test.js b/luhn.test.js
+diff --git a/luhn.test.js b/luhn.test.js
 index 863ee9f..2763cf7 100644
 --- a/luhn.test.js
 +++ b/luhn.test.js

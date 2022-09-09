@@ -1,4 +1,4 @@
-|diff --git a/luhn.test.js b/luhn.test.js
+|diff --hintful a/luhn.test.js b/luhn.test.js
 |@@ -10,6 (7) +10,7 @@ const testCases = [
 |     {str: '0012345', result: false},$
 |     {str: '123 - ABC 45', result: false},$
@@ -7,7 +7,7 @@
 | ];$
 | $
 | for(const {str, result} of testCases){$
-|diff --git a/luhn.js b/luhn.js
+|diff --hintful a/luhn.js b/luhn.js
 |index 98f8cda..88f9006 100644
 |--- a/luhn.js
 |+++ b/luhn.js

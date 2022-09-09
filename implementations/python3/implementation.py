@@ -29,10 +29,11 @@ def getInputLines():
 
 def parseDiff(inputLines):
     filePrefix=None
+    fileFormat=None
     fileKey=None
     for line in inputLines:
         linem = m(r'^(\|?).*\n$', line)
-        if linem[1]!=filePrefix and not  m(r'^(\|?)diff --git.*\n$', line):
+        if linem[1]!=filePrefix and not m(r'^(\|?)diff --(git|hintful).*\n$', line):
             die('Expected prefix to match previous line')
         linem = m(r'^(\|?)@@ +-([0-9]+)(,[0-9]+)? +(\([0-9]+\) +)?\+([0-9]+)(,[0-9]+)? +@@(.*)\n$', line)
         if(linem):
@@ -50,7 +51,7 @@ def parseDiff(inputLines):
             hunklinecount = int(m(r'^\(([0-9]+)\) +$', hunklinecountraw)[1]) if hunklinecountraw else None
             hunktype = 'hintful' if hunklinecountraw else 'unified'
             hunkKey = (fileKey, leftstartline, leftlinecount, rightstartline, rightlinecount)
-            extraFields = {'filekey': fileKey, 'hunkkey': hunkKey}
+            extraFields = {'fileformat': fileFormat, 'filekey': fileKey, 'hunkkey': hunkKey}
             hunkheader = {
                 'op': 'beginhunk',
                 'prefix': prefix,
@@ -134,7 +135,7 @@ def parseDiff(inputLines):
                 'mode': linem[3],
             }
             continue
-        linem = m(r'^(\|?)diff --git ([^ ]+) +([^ \r]+)\r*\n$', line)
+        linem = m(r'^(\|?)diff --(git|hintful) ([^ ]+) +([^ \r]+)\r*\n$', line)
         if(linem):
             if(filePrefix!=None):
                 yield {
@@ -143,13 +144,15 @@ def parseDiff(inputLines):
                     'filekey': fileKey,
                 }
             filePrefix=linem[1]
-            fileKey=(linem[2], linem[3])
+            fileFormat=linem[2]
+            fileKey=(linem[3], linem[4])
             yield {
                 'op': f'beginfile',
                 'prefix': filePrefix,
                 'filekey': fileKey,
-                'leftfile': linem[2],
-                'rightfile': linem[3],
+                'fileformat': fileFormat,
+                'leftfile': linem[3],
+                'rightfile': linem[4],
             }
             continue
         die(f'Cannot parse line {line}')
@@ -366,7 +369,7 @@ def formatDiff(inputObjs):
         elif(op in ['labels']):
             yield f"{prefix}--- {obj['left']}\n{prefix}+++ {obj['right']}\n"
         elif(op=='beginfile'):
-            yield f"{prefix}diff --git {obj['leftfile']} {obj['rightfile']}\n"
+            yield f"{prefix}diff --{obj['fileformat']} {obj['leftfile']} {obj['rightfile']}\n"
         elif(op=='index'):
             yield f"{prefix}index {obj['left']}..{obj['right']}"
             if obj['mode']:
@@ -457,7 +460,9 @@ def convertUnprefixedHunksToUnified(inputObjs):
                 state[var]='\n'.join(lines[1:])
         checkInvariants()
         if(op=='beginhunk'):
-            yield {**obj, 'hunktype': 'unified'}
+            yield {**obj, 'fileformat': 'git', 'hunktype': 'unified'}
+        elif(op=='beginfile'):
+            yield {**obj, 'fileformat': 'git'}
         elif(op.endswith('snippet')):
             pass
         elif(op.endswith('content')):
@@ -492,7 +497,7 @@ def convertUnprefixedHunksToUnified(inputObjs):
             state['leftended']=False
             state['rightended']=False
             yield obj
-        elif(op in ['index', 'labels', 'leftfilemode', 'rightfilemode', 'similarity-index', 'rename', 'beginfile']):
+        elif(op in ['index', 'labels', 'leftfilemode', 'rightfilemode', 'similarity-index', 'rename']):
             yield obj
         else:
             die(f'convertUnprefixedHunksToUnified cannot process operation {op}')
@@ -580,8 +585,9 @@ def ungroupFiles(inputObjs):
             del beginFile['contents']
             yield beginFile
             prefix=beginFile['prefix']
+            fileFormat=beginFile['fileformat']
             for contentObj in obj['contents']:
-                yield {**contentObj, 'prefix': prefix}
+                yield {**contentObj, 'prefix': prefix, 'fileformat': fileFormat}
             yield {'op': 'endfile', 'prefix': prefix}
         else:
             yield obj
@@ -592,15 +598,18 @@ def duplicateFilesForCompat(inputObjs):
             die(f'duplicateFilesForCompat expects only file objects, got unexpected {obj["op"]}')
         if(obj['prefix']):
             die('duplicateFilesForCompat expects only unprefixed files')
-        yield {**obj, 'prefix': '|'}
-        yield obj
+        yield {**obj, 'prefix': '|', 'fileformat': 'hintful'}
+        yield {**obj, 'fileformat': 'git'}
 
 def convertHunksToHintful(inputObjs, onlyPrefixed=False):
     for obj in inputObjs:
-        if(obj['op']=='hunk' and (not onlyPrefixed or obj['prefix'])):
+        if(obj['op']=='beginfile' and (not onlyPrefixed or obj['prefix'])):
+            yield {**obj, 'fileformat': 'hintful'}
+        elif(obj['op']=='hunk' and (not onlyPrefixed or obj['prefix'])):
             hunklinecount = len(obj['contents'])
             yield {
                 **obj,
+                'fileformat': 'hintful',
                 'hunklinecount': hunklinecount,
                 'hunklinecountraw': str(hunklinecount),
                 'hunktype': 'hintful'
@@ -649,6 +658,9 @@ def validateFilesAndHunks(inputObjs):
                     die('Labels mismatch between prefixed and unprefixed file')
             labelsCache[k]=obj
         if(op=='beginhunk'):
+            if(not ((obj['fileformat']=='hintful' and (obj['hunktype']=='hintful' or obj['hunktype']=='unified')) or
+                    (obj['fileformat']=='git' and obj['hunktype']=='unified'))):
+                die(f"Illegal combination of fileformat={obj['fileformat']}, hunktype={obj['hunktype']}")
             k=obj['hunkkey']
             if k in hunkCache:
                 oldObj=hunkCache[k]
@@ -728,6 +740,7 @@ def applyPrefixedFiles(inputObjs):
                 else: die(f'Unexpected op {op2} in applyPrefixedFiles')
             yield {
                 **oldFile,
+                'fileformat': appliedFile['fileformat'],
                 'contents': newContents
             }
             continue

@@ -1,4 +1,4 @@
-diff --git a/add-cr b/add-cr
+diff --hintful a/add-cr b/add-cr
 index ac3d045..3069f0b 100644
 --- a/add-cr
 +++ b/add-cr
@@ -6,14 +6,14 @@ index ac3d045..3069f0b 100644
  add-cr-content\
 -$
 +$
-diff --git a/add-eofeol b/add-eofeol
+diff --hintful a/add-eofeol b/add-eofeol
 index 2c10da7..3d82968 100644
 --- a/add-eofeol
 +++ b/add-eofeol
 @@ -1 (2) +1 @@
  add-eofeol-content\
 +$
-diff --git a/breakout-attempt b/breakout-attempt
+diff --hintful a/breakout-attempt b/breakout-attempt
 index cb38e1b..17d589d 100644
 --- a/breakout-attempt
 +++ b/breakout-attempt
@@ -26,7 +26,7 @@ index cb38e1b..17d589d 100644
  @@ -1,4 +1,4 @@$
 -abcdefghij$
 +jihgfedcba$
-diff --git a/changed-without-eofeol b/changed-without-eofeol
+diff --hintful a/changed-without-eofeol b/changed-without-eofeol
 index 8798b37..9ee0c90 100644
 --- a/changed-without-eofeol
 +++ b/changed-without-eofeol
@@ -35,14 +35,14 @@ index 8798b37..9ee0c90 100644
 -1$
 +3$
  changed-without-eofeol-content-2\
-diff --git a/create-file b/create-file
+diff --hintful a/create-file b/create-file
 new file mode 100644
 index 0000000..9f22da4
 --- /dev/null
 +++ b/create-file
 @@ -0,0 (1) +1 @@
 +created-content$
-diff --git a/delete-cr b/delete-cr
+diff --hintful a/delete-cr b/delete-cr
 index 458ee9d..1392cb1 100644
 --- a/delete-cr
 +++ b/delete-cr
@@ -61,21 +61,21 @@ index 458ee9d..1392cb1 100644
 -$
 +$
 <
-diff --git a/delete-cr-without-eofeol b/delete-cr-without-eofeol
+diff --hintful a/delete-cr-without-eofeol b/delete-cr-without-eofeol
 index e8b5ac0..4f3920c 100644
 --- a/delete-cr-without-eofeol
 +++ b/delete-cr-without-eofeol
 @@ -1 (2) +1 @@
  delete-cr-without-eofeol-content\
 -\
-diff --git a/delete-eofeol b/delete-eofeol
+diff --hintful a/delete-eofeol b/delete-eofeol
 index a02131d..ef0d501 100644
 --- a/delete-eofeol
 +++ b/delete-eofeol
 @@ -1 (2) +1 @@
  delete-eofeol-content\
 -$
-diff --git a/delete-file b/delete-file
+diff --hintful a/delete-file b/delete-file
 deleted file mode 100644
 index 0be87f9..0000000
 --- a/delete-file

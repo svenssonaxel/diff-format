@@ -1,4 +1,4 @@
-diff --git a/file.py b/file.py
+diff --hintful a/file.py b/file.py
 --- a/file.py
 +++ b/file.py
 @@ -1,4 (20) +1,3 @@
