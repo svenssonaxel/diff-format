@@ -48,10 +48,11 @@ implementationsOf={}
 def findImplementations():
     with inDir(os.path.join('..', 'implementations')):
         for dirName in os.listdir():
-            with inDir(dirName):
-                path=os.getcwd()
-                for fileName in os.listdir():
-                    implementationsOf[fileName] = [*(implementationsOf[fileName] if fileName in implementationsOf else []), os.path.join(path, fileName)]
+            if(os.path.isdir(dirName)):
+                with inDir(dirName):
+                    path=os.getcwd()
+                    for fileName in os.listdir():
+                        implementationsOf[fileName] = [*(implementationsOf[fileName] if fileName in implementationsOf else []), os.path.join(path, fileName)]
 
 def red(text):
     if(sys.stdout.isatty()):
