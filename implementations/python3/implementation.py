@@ -2,9 +2,6 @@
 import functools, os, sys, re
 from operator import xor
 
-def p(*data):
-    print(*data, sep='', end='')
-
 def m(pattern, string):
     match = re.match(pattern, string)
     if not match:
@@ -26,6 +23,12 @@ def getInputLines():
         if not line:
             break
         yield line
+
+def nextOrDie(inputGenerator):
+    try:
+        return next(inputGenerator)
+    except StopIteration:
+        die('Unexpected stop of generator')
 
 def parseDiff(inputLines):
     filePrefix=None
@@ -77,8 +80,8 @@ def parseDiff(inputLines):
             continue
         linem = m(r'^(\|?)--- ([^\r]*)\r*\n$', line)
         if(linem):
-            line2 = next(inputLines)
-            line2m = m(r'^(\|?)\+\+\+ ([^\r]*)\r*\n$', line2 or '')
+            line2 = nextOrDie(inputLines)
+            line2m = m(r'^(\|?)\+\+\+ ([^\r]*)\r*\n$', line2)
             if not line2 or not line2m or not (linem[1]==line2m[1]):
                 die('Expected a +++ line with same prefix')
             yield {
@@ -100,8 +103,8 @@ def parseDiff(inputLines):
             continue
         linem = m(r'^(\|?)rename from ([^\r]*)\r*\n$', line)
         if(linem):
-            line2 = next(inputLines)
-            line2m = m(r'^(\|?)rename to ([^\r]*)\r*\n$', line2 or '')
+            line2 = nextOrDie(inputLines)
+            line2m = m(r'^(\|?)rename to ([^\r]*)\r*\n$', line2)
             if not line2 or not line2m or not (linem[1]==line2m[1]):
                 die('Expected "rename to" line with same prefix')
             yield {
@@ -147,7 +150,7 @@ def parseDiff(inputLines):
             fileFormat=linem[2]
             fileKey=(linem[3], linem[4])
             yield {
-                'op': f'beginfile',
+                'op': 'beginfile',
                 'prefix': filePrefix,
                 'filekey': fileKey,
                 'fileformat': fileFormat,
@@ -180,13 +183,6 @@ def glueNonewline(inputLines):
     if prevLine:
         yield prevLine
 
-def nextLine(inputLines):
-    try:
-        line = next(inputLines)
-        return line
-    except StopIteration:
-        die('End of file in middle of hunk')
-
 def parseUnifiedHunk(header, inputLines, extraFields):
     leftlinecount = header['leftlinecount']
     rightlinecount = header['rightlinecount']
@@ -195,9 +191,7 @@ def parseUnifiedHunk(header, inputLines, extraFields):
     while(0 < leftlinecount or 0 < rightlinecount):
         if(leftlinecount < 0 or rightlinecount < 0):
             die('Corrupt hunk line count')
-        line = nextLine(inputLines)
-        if not line:
-            die('Incomplete hunk')
+        line = nextOrDie(inputLines)
         linem = m(r'^(\|?).*\n(.*\n)?$', line)
         if linem[1]!=header['prefix']:
             die('Expected prefix to match previous line')
@@ -239,8 +233,8 @@ def parseHintfulHunk(header, inputLines, extraFields):
         'leftsnippetcontent': '',
         'rightsnippetcontent': '',
     }
-    for index in range(header['hunklinecount']):
-        line = nextLine(inputLines)
+    for _ in range(header['hunklinecount']):
+        line = nextOrDie(inputLines)
         linem = m(r'^(\|?).*\n$', line)
         if linem[1]!=header['prefix']:
             die('Expected prefix to match previous line')
@@ -298,7 +292,7 @@ def parseHintfulHunk(header, inputLines, extraFields):
             continue
         die(f'Corrupt hunk: Strange line: {line}')
     if(state['leftsnippetname'] or state['rightsnippetname']):
-        die(f'Hunk ended inside snippet')
+        die('Hunk ended inside snippet')
     yield {
         'op': 'endhunk',
         'prefix': header['prefix'],
@@ -373,7 +367,7 @@ def formatDiff(inputObjs):
         elif(op=='index'):
             yield f"{prefix}index {obj['left']}..{obj['right']}"
             if obj['mode']:
-                yield f" {obj['mode']}"
+                yield obj['mode']
             yield '\n'
         elif(op.endswith('filemode')):
             yield from [
@@ -537,7 +531,7 @@ def groupHunks(inputObjs):
             contents=[]
             endHunk=None
             while True:
-                contentObj=next(inputObjs)
+                contentObj=nextOrDie(inputObjs)
                 if(contentObj['prefix']!=beginHunk['prefix']):
                     die('Prefix mismatch')
                 if(contentObj['op']=='endhunk'):
@@ -568,7 +562,7 @@ def groupFiles(inputObjs):
             beginFile=obj
             contents=[]
             while True:
-                contentObj=next(inputObjs)
+                contentObj=nextOrDie(inputObjs)
                 if(contentObj['prefix']!=beginFile['prefix']):
                     die('Prefix mismatch')
                 if(contentObj['op']=='endfile'):
@@ -631,7 +625,7 @@ def validateFilesAndHunks(inputObjs):
     endHunkCache={}
     indexCache={}
     labelsCache={}
-    lastHunk=None
+    lastHunk={}
     for obj in inputObjs:
         op=obj['op']
         if(op=='beginfile'):
@@ -687,7 +681,7 @@ def validateFilesAndHunks(inputObjs):
                     state[f'{side}allowed']=False
                 linecount = len(content.split('\n')) - (0 if nonl else 1)
                 if(linecount!=beginhunk[f'{side}linecount']):
-                   die(f"Line count on {side} side declared as {hunk[f'{side}linecount']} but is really {linecount}")
+                    die(f"Line count on {side} side declared as {beginhunk[f'{side}linecount']} but is really {linecount}")
             endHunkCache[k]=obj
         yield obj
     for hunkKey in hunkCache:
@@ -860,7 +854,7 @@ def latexFormatContents(inputObjs, task):
         elif(op=='index'):
             yield f"index {obj['left']}..{obj['right']}"
             if obj['mode']:
-                yield f" {obj['mode']}"
+                yield obj['mode']
         elif(op.endswith('filemode')):
             yield from [
                 {'leftfilemode': 'deleted', 'rightfilemode': 'new'}[op],
@@ -886,7 +880,7 @@ def latexFormatGroupMacros(inputObjs):
             die('Bad typing in latexFormatGroupMacros')
         contents=""
         while True:
-            nextObj=next(inputObjs)
+            nextObj=nextOrDie(inputObjs)
             if(type(nextObj)==str):
                 contents += nextObj
             elif(type(nextObj)==int):
@@ -929,7 +923,7 @@ def latexFormatGenerate(inputObjs):
 
 def output(inputStrings):
     for text in inputStrings:
-        p(text)
+        print(text, sep='', end='')
 
 def sink(inputObjs):
     for __ignored in inputObjs:
