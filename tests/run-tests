@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import contextlib, os, re, sys, tempfile, unittest
+import contextlib, hashlib, os, re, sys, tempfile, unittest
 
 def m(pattern, string):
     match = re.match(pattern, string, re.DOTALL)
@@ -96,12 +96,21 @@ class TestAll(unittest.TestCase):
                     sys.stdin.readline()
             self._nestTestMsgs.pop()
 
+    # Deduplication of generated tests
+    _doneTests=[]
+    def alreadyRun(self, *testId):
+        if(testId in self._doneTests):
+            return True
+        self._doneTests.append(testId)
+        return False
+
     # Will be executed by unittest.main
 
     def test_all(self):
         testdirs=os.listdir()
         testdirs.sort()
         for testdir in testdirs:
+            self._doneTests=[]
             if re.match('^[0-9]{3}$', testdir):
                 with self.nestTest(f'Tests in directory {testdir}'):
                     with inDir(testdir):
@@ -148,6 +157,7 @@ class TestAll(unittest.TestCase):
     # Functions for testing
 
     def doTestDiff(self, diffFile, v1, v2, mode):
+        if(self.alreadyRun("doTestDiff", self.hashFile(diffFile), v1, v2, mode)): return
         # Validate diff file
         for validateDiff in implementationsOf[f'validate-{mode}-diff']:
             with self.nestTest(f'Validate {mode} diff using {validateDiff}'):
@@ -170,44 +180,46 @@ class TestAll(unittest.TestCase):
                             self.sh(f'cat {diffFile} | {convertDiff} > {diffFile}.converted-to.{othermode}.diff')
                             self.doTestDiff(f'{diffFile}.converted-to.{othermode}.diff', v1, v2, othermode)
         # Test reversing
-        if not m('^.*\.reversed$', diffFile):
-            for reverseDiff in implementationsOf[f'reverse-{mode}-diff']:
-                with self.nestTest(f'Reverse {mode} diff using {reverseDiff}'):
-                    with filesInTmpDir([diffFile, v1, v2]):
-                        self.sh(f'cat {diffFile} | {reverseDiff} > {diffFile}.reversed')
-                        with self.nestTest(f'Double reverse is noop'):
-                            with filesInTmpDir([diffFile, f'{diffFile}.reversed', v1, v2]):
-                                self.assertNotSame(diffFile, f'{diffFile}.reversed')
-                                self.sh(f'cat {diffFile}.reversed | {reverseDiff} > {diffFile}.reversed.reversed')
-                                self.doTestDiffForwardPatch(f'{diffFile}.reversed.reversed', v1, v2, mode)
-                        with self.nestTest(f'Use reverse diff file as diff file'):
-                            self.doTestDiff(f'{diffFile}.reversed', v2, v1, mode)
+        for reverseDiff in implementationsOf[f'reverse-{mode}-diff']:
+            with self.nestTest(f'Reverse {mode} diff using {reverseDiff}'):
+                with filesInTmpDir([diffFile, v1, v2]):
+                    self.sh(f'cat {diffFile} | {reverseDiff} > {diffFile}.reversed')
+                    self.assertNotSame(diffFile, f'{diffFile}.reversed')
+                    with self.nestTest('Three reversions has the same effect as one'):
+                        self.sh(f'cat {diffFile}.reversed | {reverseDiff} | {reverseDiff} > {diffFile}.triple-reversed')
+                        self.assertSame(f'{diffFile}.reversed', f'{diffFile}.triple-reversed')
+                    with self.nestTest('Use reverse diff file as diff file'):
+                        self.doTestDiff(f'{diffFile}.reversed', v2, v1, mode)
         # If no `\ No newline` lines are found, test newline conversions
         if(not self.shBool(f"grep -ERq '^\\|?\\\\ No newline' {diffFile}")):
-            for [explanation, PRE] in [
-                    ['Add CR', r's@\n@\r\n@'],
-                    ['Add CRCR', r's@\n@\r\r\n@'],
-                    ['Remove CR', r's@\r\n@\n@'],
-                    ['Remove CR twice', r's@\r\n@\n@;s@\r\n@\n@'],
-            ]:
-                with self.nestTest(f'Convert newline: {explanation}'):
-                    with filesInTmpDir([diffFile, v1, v2]):
-                        newDiffFile=f'{diffFile}.newlineconverted.diff'
+            with filesInTmpDir([diffFile, v1, v2]):
+                for [explanation, ext, PRE] in [
+                        ['Add CR', 'add-cr', r's@\n@\r\n@'],
+                        ['Add CRCR', 'add-crcr', r's@\n@\r\r\n@'],
+                        ['Remove CR', 'rm-cr', r's@\r\n@\n@'],
+                        ['Remove CR twice', '2rm-cr', r's@\r\n@\n@;s@\r\n@\n@'],
+                ]:
+                    with self.nestTest(f'Convert newline: {explanation}'):
+                        newDiffFile=f'{diffFile}.{ext}.diff'
+                        newV1=f'{v1}.{ext}'
+                        newV2=f'{v2}.{ext}'
                         self.sh(f'cp {diffFile} {newDiffFile}')
-                        self.mapFiles(f"perl -pe '{PRE}'", [newDiffFile, v1, v2])
+                        self.sh(f'cp -pr {v1} {newV1}')
+                        self.sh(f'cp -pr {v2} {newV2}')
+                        self.mapFiles(f"perl -pe '{PRE}'", [newDiffFile, newV1, newV2])
                         # Validity should be preserved over newline conversions
                         for validateDiff in implementationsOf[f'validate-{mode}-diff']:
                             with self.nestTest(f'Validate {mode} diff using {validateDiff}'):
                                 self.sh(f'cat {newDiffFile} | {validateDiff}')
-                        self.doTestDiffForwardPatch(newDiffFile, v1, v2, mode)
+                        self.doTestDiffForwardPatch(newDiffFile, newV1, newV2, mode)
 
     def doTestDiffForwardPatch(self, diffFile, v1, v2, mode):
+        if(self.alreadyRun("doTestDiffForwardPatch", self.hashFile(diffFile), v1, v2, mode)): return
         with self.nestTest(f'Test {mode} forward patch'):
             with filesInTmpDir([diffFile, v1, v2]):
                 if(mode in ['compat', 'unified']):
                     self.assertNotSame(v1, v2)
                     self.sh(f'cp -pr {v1} {v1}.bu')
-                    self.assertSame(v1, f'{v1}.bu')
                     for patchUnified in implementationsOf['patch-unified']:
                         with self.nestTest(f'Patch unified using {patchUnified}'):
                             with filesInTmpDir([diffFile, v1, v2, f'{v1}.bu']):
@@ -240,18 +252,18 @@ class TestAll(unittest.TestCase):
                             self.mapFiles(f"perl -pe '{PRE}'", [newDiffFile])
                             with self.nestTest(f'Make sure {mode} diff is invalid using {validateDiff}'):
                                 self.sh(f'cat {newDiffFile} | {validateDiff} 2>/dev/null', 1)
-            # A compat format diff should always be able to be treated as hintful or unified.
-            # Hence, an invalid hintfule or unified diff must never be a valid compat diff
-            if(mode in ['hintful', 'unified']):
-                with self.nestTest(f'Interpret this {mode} diff as if it was in compat format'):
-                    self.doTestInvalidDiff(diffFile, 'compat')
+        # A compat format diff should always be able to be treated as hintful or unified.
+        # Hence, an invalid hintfule or unified diff must never be a valid compat diff
+        if(mode in ['hintful', 'unified']):
+            with self.nestTest(f'Interpret this {mode} diff as if it was in compat format'):
+                self.doTestInvalidDiff(diffFile, 'compat')
 
     def doTestContentFiles(self, v1, v2):
         for diffUnified in implementationsOf['diff-unified']:
             with self.nestTest(f'Create unified diff using {diffUnified}'):
                 with filesInTmpDir([v1, v2]):
-                    self.sh(f'{diffUnified} {v1} {v2} > generated_diff-{v1}-{v2}-unified.diff', 1)
-                    self.doTestDiff(f'generated_diff-{v1}-{v2}-unified.diff', v1, v2, 'unified')
+                    self.sh(f'{diffUnified} {v1} {v2} > generated_diff-{v1}-{v2}.unified.diff', 1)
+                    self.doTestDiff(f'generated_diff-{v1}-{v2}.unified.diff', v1, v2, 'unified')
 
     # Utility
 
@@ -268,6 +280,10 @@ class TestAll(unittest.TestCase):
         ec = os.waitstatus_to_exitcode(os.system(f'set -e; {cmd}'))
         assert ec in [0, 1]
         return {0: True, 1: False}[ec]
+
+    def hashFile(self, fileName):
+        with open(fileName,'rb') as file:
+            return hashlib.sha256(file.read()).hexdigest()
 
     def mapFiles(self, cmd, files):
         for filename in files:
