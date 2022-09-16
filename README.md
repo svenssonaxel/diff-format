@@ -5,7 +5,8 @@ Specification, reference implementations and test battery for Hintful diff forma
 * The [MAIN.md](MAIN.md) file contains the specification, along with motivation.
 * The [implementations/](implementations/) directory contains reference implementations for
   * Validating diff files in, reversing diff files in, and converting diff files from/to compatibility, hintful and unified formats.
-  * Producing and consuming diff format files in unified format (by calling out to `git`).
+  * Producing diff format files in hintful and unified formats (by calling out to `git diff`).
+  * Consuming diff format files in unified format (by calling out to `git apply`).
 * The [tests/](tests/) directory contains tests for the implementations in `implementations/`.
 
 # How to help

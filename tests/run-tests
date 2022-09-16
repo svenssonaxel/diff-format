@@ -259,11 +259,12 @@ class TestAll(unittest.TestCase):
                 self.doTestInvalidDiff(diffFile, 'compat')
 
     def doTestContentFiles(self, v1, v2):
-        for diffUnified in implementationsOf['diff-unified']:
-            with self.nestTest(f'Create unified diff using {diffUnified}'):
-                with filesInTmpDir([v1, v2]):
-                    self.sh(f'{diffUnified} {v1} {v2} > generated_diff-{v1}-{v2}.unified.diff', 1)
-                    self.doTestDiff(f'generated_diff-{v1}-{v2}.unified.diff', v1, v2, 'unified')
+        for mode in ['hintful', 'unified']:
+            for diff in (implementationsOf[f'diff-{mode}'] or []):
+                with self.nestTest(f'Create {mode} diff using {diff}'):
+                    with filesInTmpDir([v1, v2]):
+                        self.sh(f'{diff} {v1} {v2} > generated_diff-{v1}-{v2}.{mode}.diff', 1)
+                        self.doTestDiff(f'generated_diff-{v1}-{v2}.{mode}.diff', v1, v2, mode)
 
     # Utility
 

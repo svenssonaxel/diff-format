@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+set -eo pipefail
+[ -e "$1"/.git ] && exit 2
+[ -e "$2"/.git ] && exit 2
+dir=$(mktemp -d)
+trap "rm -rf $dir" EXIT
+cp -pr "$1" "$2" "$dir/"
+a=$(basename "$1")
+b=$(basename "$2")
+(
+    cd "$dir"
+    cat >prescr <<"EOF"
+#!/usr/bin/env bash
+file=$(mktemp)
+cat "$1" > "$file"
+cat "$file" |
+    perl -pe '
+        s/</<</;
+        s/>/<gt>/;
+        s/<</<lt>/;
+        s/^/<beginline>/;
+        s/$\\n/<endline>/g;
+        s/$/<endless>/g;
+        s/<endline><endless>/<endline>/g;
+        s/<endline>/<endline>\n/g;
+        s/\r/<CR>/g;
+        '"$(for a in 0 1 8 9 a b c d e f; do
+              for b in 0 1 2 3 4 5 6 7 8 9 a b c d e f; do
+                printf 's/\\x'$a$b'/<'$a$b'>/g;\n';
+              done;
+            done | sed '/0[ad]/d')"'
+        s/ /<sp>/g;
+' > "$1"
+rm "$file"
+EOF
+    chmod u+x prescr
+    find "$a" "$b" -type f -exec ./prescr {} \;
+    cd "$dir/$a"
+    git init
+    git add .
+    git commit -m 1
+    cd "$dir"
+    mv "$a"/.git "$b"/
+    cd "$dir/$b"
+    git add .
+    git commit -m 2
+) >/dev/null
+cd "$dir/$b"
+if git diff -a --word-diff=color --word-diff-regex='([^<>]|<[A-Za-z0-9]+>)' --exit-code HEAD^ > word.diff; then
+    ec=0
+else
+    ec=1
+fi
+< word.diff perl -pe '
+    s/\e\[([0-9]*m)/<esc\1>/g;
+    s/(<endline><escm>)(.)/\1\n\2/;
+    s/(<escm>)(.)/\1<split>\2/g;
+    s/(.)(<esc31m>)/\1<split>\2/g;
+    s/(.)(<esc32m>)/\1<split>\2/g;
+    s/<split><split>/<split>/g;
+    s/<split>\\$/\\/g;
+    s/<esc32m>((<CR>)+)<escm><split><endline>/<esc32m>\1<endline><escm><split><esc31m><endline><escm>/g;
+    s/<esc31m>((<CR>)+)<escm><split><endline>/<esc31m>\1<endline><escm><split><esc32m><endline><escm>/g;
+    s/<split><esc/\\\n<esc/g;
+    s/<split>/\\\n /g;
+    s/(^|\n)<esc31m>(<beginline>)?/\1-/g;
+    s/(^|\n)<esc32m>(<beginline>)?/\1+/g;
+    s/^<beginline>/ /g;
+    s/<esc1m>diff --git /diff --hintful /g;
+    s/^<esc36m>(@@ +-[0-9,]+)( +\+[0-9,]+ +@@.*)/\1 (<unknown>)\2/g;
+    s/<esc1m>//g;
+    s/<escm>(\\)?\n/\1\n/g;
+    s/<endline>\\?($|\n)/\$\1/g;
+    s/<sp>/ /g;
+    '"$(for a in 0 1 8 9 a b c d e f; do
+          for b in 0 1 2 3 4 5 6 7 8 9 a b c d e f; do
+            printf 's/<'$a$b'>/\\x'$a$b'/g;\n';
+          done;
+        done | sed '/0[ad]/d')"'
+    s/(^|\n)[-+ ](<endless>)?\\($|\n)/\1\3/g;
+    s/<endless>/\\/;
+    s/(<CR>)*\$\n/\$\1\n/g;
+    s/<CR>/\r/g;
+    s/<lt>/</g;
+    s/<gt>/>/g;
+' | sed '/^$/d' > hintful.diff
+
+while grep -Fa '<unknown>' hintful.diff >/dev/null; do
+    line=$(<hintful.diff sed -n -r '1,/<unknown>/p' | wc -l)
+    count=$(<hintful.diff sed -n -r $line',/^[^-+ ]/p' | grep -Eac '^[-+ ]')
+    sed -ri "1,$line s/<unknown>/$count/" hintful.diff
+done
+cat hintful.diff
+exit $ec
