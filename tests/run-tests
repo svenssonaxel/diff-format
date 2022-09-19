@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-import contextlib, hashlib, os, re, sys, tempfile, unittest
+import contextlib, hashlib, os, re, sys, tempfile, threading, unittest
+
+_totalNumberOfAssertions = 28439
 
 def m(pattern, string):
     match = re.match(pattern, string, re.DOTALL)
@@ -13,8 +15,7 @@ def m(pattern, string):
     return ret
 
 def die(reason):
-    sys.stderr.write(reason+'\n')
-    sys.exit(1)
+    raise Exception(reason)
 
 # Polyfill
 if not 'waitstatus_to_exitcode' in dir(os):
@@ -26,19 +27,83 @@ if not 'waitstatus_to_exitcode' in dir(os):
             return os.WEXITSTATUS(sts)
     os.waitstatus_to_exitcode = waitstatus_to_exitcode
 
+# Multithreading helpers
+_local=threading.local()
+# Keep track of the thread-local path of nested tests
+_local.nestTestMsgs = []
+# Keep track of a thread-local simulated CWD, since the CWD is set per process.
+_local.cwd = os.getcwd()
+def cwd():
+    global _local
+    return _local.cwd
+def os_system(cmd):
+    global _firstError
+    if _firstError:
+        die('An error occurred elsewhere, so stopping all activity')
+    return os.system(f'cd {cwd()} || exit 2; {cmd}')
+def joinCwd(*path): return os.path.abspath(os.path.join(cwd(), *path))
+def os_listdir(dir='.'): return os.listdir(joinCwd(dir))
+def os_path_isdir(path): return os.path.isdir(joinCwd(path))
+def os_path_isfile(path): return os.path.isfile(joinCwd(path))
+# With multiple threads we can get multiple concurrent exceptions. We only want to report the first.
+_firstError=None
+def refineException(e):
+    global _firstError
+    if _firstError:
+        e.isFirstError = False
+    else:
+        # Save the first error that occurred to a global variable
+        _firstError=e
+        e.isFirstError = True
+    # Attach context to the exception
+    if not hasattr(e, 'thread'):
+        e.thread = threading.current_thread()
+    if not hasattr(e, 'nestTestMsgs'):
+        global _local
+        e.nestTestMsgs = _local.nestTestMsgs
+    return e
 @contextlib.contextmanager
-def inDir(dirName):
-    olddir = os.getcwd()
-    os.chdir(dirName)
+def threads():
+    global _local
+    _local.threads=[]
+    yield
+    for thread in _local.threads:
+        thread.start()
+    for thread in _local.threads:
+        thread.join()
+    global _firstError
+    if _firstError:
+        # Exceptions are swallowed in subthreads, but we still don't want to go on
+        die('An error occurred somewhere, so stopping all activity')
+def addThread(fun, *args):
+    global _local
+    _local.threads.append(threading.Thread(target=runOneThread, args=(_local.cwd, _local.nestTestMsgs, fun, *args), ))
+def runOneThread(cwd, nestTestMsgs, fun, *args):
+    # Reconstruct the thread-local object
+    global _local
+    _local.cwd = cwd
+    _local.nestTestMsgs = nestTestMsgs
+    try:
+        return fun(*args)
+    except Exception as e:
+        # Make sure exceptions get correct .thread attribute, and that no exception is reported in subthreads
+        refineException(e)
+
+@contextlib.contextmanager
+def inDir(*path):
+    global _local
+    olddir = cwd()
+    newdir = joinCwd(*path)
+    _local.cwd = newdir
     try:
         yield
     finally:
-        os.chdir(olddir)
+        _local.cwd = olddir
 
 @contextlib.contextmanager
 def filesInTmpDir(files):
     with tempfile.TemporaryDirectory() as tempdir:
-        ec = os.waitstatus_to_exitcode(os.system(f'cp -pr -- {" ".join(files)} {tempdir}'))
+        ec = os.waitstatus_to_exitcode(os_system(f'cp -pr -- {" ".join(files)} {tempdir}'))
         if not ec==0:
             die('Failed to copy files into temporary directory')
         with inDir(tempdir):
@@ -46,13 +111,12 @@ def filesInTmpDir(files):
 
 implementationsOf={}
 def findImplementations():
-    with inDir(os.path.join('..', 'implementations')):
-        for dirName in os.listdir():
-            if(os.path.isdir(dirName)):
+    with inDir('..', 'implementations'):
+        for dirName in os_listdir():
+            if(os_path_isdir(dirName)):
                 with inDir(dirName):
-                    path=os.getcwd()
-                    for fileName in os.listdir():
-                        implementationsOf[fileName] = [*(implementationsOf[fileName] if fileName in implementationsOf else []), os.path.join(path, fileName)]
+                    for fileName in os_listdir():
+                        implementationsOf[fileName] = [*(implementationsOf[fileName] if fileName in implementationsOf else []), joinCwd(fileName)]
 
 def red(text):
     if(sys.stdout.isatty()):
@@ -65,36 +129,32 @@ class TestAll(unittest.TestCase):
     # Count asserts
 
     _assertCount=0
+    _progress=0
 
     def assertEqual(self, expected, actual):
-        self._assertCount+=1
         super().assertEqual(expected, actual)
+        self._assertCount+=1
+        global _totalNumberOfAssertions
+        newProgress = round(self._assertCount * 100 / _totalNumberOfAssertions)
+        if newProgress != self._progress:
+            print(f'\rProgress: {newProgress}%', end='', flush=True)
+            self._progress = newProgress
 
-    # Pretty nested tests
-
-    _nestTestMsgs=[]
+    # Nested tests
 
     @contextlib.contextmanager
     def nestTest(self, msg):
-        self._nestTestMsgs.append(msg)
-        msgs=[*self._nestTestMsgs] # Defensive copy
-        print(f"{' │' * (len(msgs) - 1)} ╭╴{msg}")
-        done=False
+        global _local
+        prevMsgs = _local.nestTestMsgs
+        theseMsgs = [*prevMsgs, msg] # Defensive copying
+        _local.nestTestMsgs = theseMsgs
         try:
-            with self.subTest("Nested test", path=msgs):
-                yield
-                print(f"{' │' * (len(msgs) - 1)} ╰╴Done")
-                done=True
+            yield
+        except Exception as e:
+            # Make sure exceptions get correct .nestTestMsgs attribute
+            raise refineException(e)
         finally:
-            if not done:
-                print(f"{' │' * (len(msgs) - 1)} ╰╴{red('NOT SUCCESSFUL!')} TEST PATH:")
-                for m in msgs:
-                    print(f"{' │' * (len(msgs) - 1)}   ✦ {m}")
-                if(sys.stdin.buffer.isatty() and sys.stdout.buffer.isatty()):
-                    print(f"{' │' * (len(msgs) - 1)}   ➔ Current dir: {os.getcwd()}")
-                    print("pausing…")
-                    sys.stdin.readline()
-            self._nestTestMsgs.pop()
+            _local.nestTestMsgs = prevMsgs
 
     # Deduplication of generated tests
     _doneTests=[]
@@ -107,52 +167,67 @@ class TestAll(unittest.TestCase):
     # Will be executed by unittest.main
 
     def test_all(self):
-        testdirs=os.listdir()
+        testdirs=os_listdir()
         testdirs.sort()
-        for testdir in testdirs:
-            self._doneTests=[]
-            if re.match('^[0-9]{3}$', testdir):
-                with self.nestTest(f'Tests in directory {testdir}'):
-                    with inDir(testdir):
-                        self.doTestThisDir()
-        print(f'(asserts={self._assertCount})')
+        try:
+            with threads():
+                for testdir in testdirs:
+                    if re.match('^[0-9]{3}$', testdir):
+                        with self.nestTest(f'Tests in directory {testdir}'):
+                            with inDir(testdir):
+                                addThread(self.doTestThisDir)
+        except Exception as e:
+            # Make sure we only report the first error
+            refineException(e)
+        global _firstError
+        if _firstError:
+            # Report error context
+            print(f"\n    {red('NOT SUCCESSFUL!')} TEST PATH:")
+            for msg in _firstError.nestTestMsgs:
+                print(f"    ✦ {msg}")
+            # Use Python standard error reporter
+            raise _firstError
+        global _totalNumberOfAssertions
+        super().assertEqual(_totalNumberOfAssertions, self._assertCount)
+        print(f'\n(asserts={self._assertCount})')
 
     # Run all tests in one directory
 
     def doTestThisDir(self):
         contentfiles = []
-        files=os.listdir()
+        files=os_listdir()
         files.sort()
-        for filename in files:
-            match = m('^[0-9]+-([a-z])-([a-z])\.(.*)', filename)
-            if(match):
-                with self.nestTest(f'Test file {filename}'):
-                    v1 = match[1]
-                    v2 = match[2]
-                    testtype = match[3]
-                    if(testtype=='unified.diff'):
-                        self.doTestDiff(filename, v1, v2, 'unified')
-                    elif(testtype=='hintful.diff'):
-                        self.doTestDiff(filename, v1, v2, 'hintful')
-                    elif(testtype=='compat.diff'):
-                        self.doTestDiff(filename, v1, v2, 'compat')
-                    elif(testtype=='invalid.unified.diff'):
-                        self.doTestInvalidDiff(filename, 'unified')
-                    elif(testtype=='invalid.hintful.diff'):
-                        self.doTestInvalidDiff(filename, 'hintful')
-                    elif(testtype=='invalid.compat.diff'):
-                        self.doTestInvalidDiff(filename, 'compat')
-                    else:
-                        self.fail(f"Don't know what to do with file {filename}")
-                continue
-            match = m('^([a-z])$', filename)
-            if(match):
-                for otherfile in contentfiles:
-                    with self.nestTest(f'Test content files {otherfile} and {filename}'):
-                        self.doTestContentFiles(otherfile, filename)
-                contentfiles.append(filename)
-                continue
-            self.fail(f"Don't know what to do with file {filename}")
+        with threads():
+            for filename in files:
+                match = m('^[0-9]+-([a-z])-([a-z])\.(.*)', filename)
+                if(match):
+                    with self.nestTest(f'Test file {filename}'):
+                        v1 = match[1]
+                        v2 = match[2]
+                        testtype = match[3]
+                        if(testtype=='unified.diff'):
+                            addThread(self.doTestDiff, filename, v1, v2, 'unified')
+                        elif(testtype=='hintful.diff'):
+                            addThread(self.doTestDiff, filename, v1, v2, 'hintful')
+                        elif(testtype=='compat.diff'):
+                            addThread(self.doTestDiff, filename, v1, v2, 'compat')
+                        elif(testtype=='invalid.unified.diff'):
+                            addThread(self.doTestInvalidDiff, filename, 'unified')
+                        elif(testtype=='invalid.hintful.diff'):
+                            addThread(self.doTestInvalidDiff, filename, 'hintful')
+                        elif(testtype=='invalid.compat.diff'):
+                            addThread(self.doTestInvalidDiff, filename, 'compat')
+                        else:
+                            die(f"Don't know what to do with file {filename}")
+                    continue
+                match = m('^([a-z])$', filename)
+                if(match):
+                    for otherfile in contentfiles:
+                        with self.nestTest(f'Test content files {otherfile} and {filename}'):
+                            addThread(self.doTestContentFiles, otherfile, filename)
+                    contentfiles.append(filename)
+                    continue
+                die(f"Don't know what to do with file {filename}")
 
     # Functions for testing
 
@@ -275,29 +350,29 @@ class TestAll(unittest.TestCase):
         self.sh(f'diff -u -r {v1} {v2} > /dev/null', 1)
 
     def sh(self, cmd, expectedExitCode=0):
-        self.assertEqual(expectedExitCode, os.waitstatus_to_exitcode(os.system(f'set -e; {cmd}')))
+        self.assertEqual(expectedExitCode, os.waitstatus_to_exitcode(os_system(f'set -e; {cmd}')))
 
     def shBool(self, cmd):
-        ec = os.waitstatus_to_exitcode(os.system(f'set -e; {cmd}'))
+        ec = os.waitstatus_to_exitcode(os_system(f'set -e; {cmd}'))
         assert ec in [0, 1]
         return {0: True, 1: False}[ec]
 
     def hashFile(self, fileName):
-        with open(fileName,'rb') as file:
+        with open(joinCwd(fileName),'rb') as file:
             return hashlib.sha256(file.read()).hexdigest()
 
     def mapFiles(self, cmd, files):
         for filename in files:
-            if(os.path.isfile(filename)):
+            if(os_path_isfile(filename)):
                 self.sh(f'cat {filename} | {cmd} > {filename}.tmp.processing; mv {filename}.tmp.processing {filename};')
-            elif(os.path.isdir(filename)):
-                files2 = os.listdir(filename)
+            elif(os_path_isdir(filename)):
+                files2 = os_listdir(filename)
                 with inDir(filename):
                     self.mapFiles(cmd, files2)
             else:
-                die(f'Cannot map file node {os.path.join(os.getcwd(),filename)}')
+                die(f'Cannot map file node {joinCwd(filename)}')
 
-if m('^.*[ !"#$&\'()*+;<>?\\^`{|}~].*$', os.getcwd()):
+if m('^.*[ !"#$&\'()*+;<>?\\^`{|}~].*$', cwd()):
     die(f'Running from a weird path.')
 findImplementations()
 if __name__ == '__main__':
