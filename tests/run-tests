@@ -129,16 +129,21 @@ class TestAll(unittest.TestCase):
     # Count asserts
 
     _assertCount=0
-    _progress=0
 
     def assertEqual(self, expected, actual):
         super().assertEqual(expected, actual)
         self._assertCount+=1
+        self.updateStatus(False)
+
+    def updateStatus(self, force):
         global _totalNumberOfAssertions
-        newProgress = round(self._assertCount * 100 / _totalNumberOfAssertions)
-        if newProgress != self._progress:
-            print(f'\rProgress: {newProgress}%', end='', flush=True)
-            self._progress = newProgress
+        asserts = self._assertCount
+        progress = round(asserts * 100 / _totalNumberOfAssertions)
+        threadCount = threading.active_count()
+        if sys.stdout.isatty():
+            print(f'\x1b[4D    \x1b[G{self._assertCount}/{_totalNumberOfAssertions} asserts done ({progress}%), running in {threadCount} thread{"s" if 1 < threadCount else ""}', end='', flush=True)
+        elif force or self._assertCount % 1000 == 0:
+            print(f'{self._assertCount}/{_totalNumberOfAssertions} asserts done ({progress}%)', flush=True)
 
     # Nested tests
 
@@ -176,20 +181,22 @@ class TestAll(unittest.TestCase):
                         with self.nestTest(f'Tests in directory {testdir}'):
                             with inDir(testdir):
                                 addThread(self.doTestThisDir)
+            self.updateStatus(True)
         except Exception as e:
             # Make sure we only report the first error
             refineException(e)
+        finally:
+            print('')
         global _firstError
         if _firstError:
             # Report error context
-            print(f"\n    {red('NOT SUCCESSFUL!')} TEST PATH:")
+            print(f"    {red('NOT SUCCESSFUL!')} TEST PATH:")
             for msg in _firstError.nestTestMsgs:
-                print(f"    ✦ {msg}")
+                print(f"    {red('✦')} {msg}")
             # Use Python standard error reporter
             raise _firstError
         global _totalNumberOfAssertions
         super().assertEqual(_totalNumberOfAssertions, self._assertCount)
-        print(f'\n(asserts={self._assertCount})')
 
     # Run all tests in one directory
 
