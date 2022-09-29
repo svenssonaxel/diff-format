@@ -1,0 +1,17 @@
+#!/bin/bash
+set -eo pipefail
+die() { echo -e "\e[1m$*\e[0m" >&2; exit 1; }
+[ "$(dirname "$(realpath "$(which "$0")")")" == "$(pwd)" ] || die "$0 Must run from own directory"
+
+dir=$(mktemp -d)
+trap 'rm -rf $dir' EXIT
+cp -pr .. "$dir/diff-format"
+cd "$dir/diff-format/make-img"
+if ! git diff --exit-code HEAD; then
+    git add ..
+    git commit -m "dummy"
+fi
+git rm -rf ../img/*.png
+make -j
+git add ../img
+git diff --exit-code HEAD || die "img/ is not up to date"

@@ -1,0 +1,48 @@
+#!/bin/bash
+set -e
+die() { echo -e "\e[1m$*\e[0m" >&2; exit 1; }
+[ "$(dirname "$(realpath "$(which "$0")")")" == "$(pwd)" ] || die "$0 Must run from own directory"
+
+image=diff-format-tester
+
+docker-run() {
+    if [ -t 1 ]; then
+        docker run -t "$@"
+    else
+        docker run "$@"
+    fi
+}
+
+build-container() {
+    docker build -t $image docker
+}
+
+run-tests() {
+    docker-run -v "$(pwd):/home/user/diff-format:ro" -w /home/user/diff-format/tests $image ./run-tests
+}
+
+check-img() {
+    docker-run -v "$(pwd):/home/user/diff-format:ro" -w /home/user/diff-format/make-img $image ./check-img
+}
+
+CMD="$1"
+
+case "$CMD" in
+    build-container|run-tests|lint-scripts|check-img|update-img)
+        $CMD
+        ;;
+    *)
+        if [[ -z "$CMD" ]]; then
+            cat <<EOF
+Usage:
+  ./script build-container              # Build container for running tests
+  ./script run-tests                    # Use container to run tests
+  ./script check-img                    # Use container to check that img/ is up to date
+EOF
+            exit 0
+        else
+            echo "Unknown command: $CMD"
+            exit 1
+        fi
+        ;;
+esac

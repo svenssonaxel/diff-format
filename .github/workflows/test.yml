@@ -1,0 +1,17 @@
+name: Test
+on:
+  - push
+  - workflow_dispatch
+jobs:
+  run_tests:
+    name: Run tests
+    runs-on: ubuntu-22.04
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Build container
+      run: ./script build-container
+    - name: Run tests
+      run: ./script run-tests
+    - name: Check img/
+      run: ./script check-img
