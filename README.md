@@ -60,6 +60,8 @@ But the same thing in a hintful visualization is quite readable:
   <img alt="A visualization of a hintful diff of a simple change to minified Javascript code" src="img/minified-js-refactor.hintful.diff.visualized.png"/>
 </picture>
 
+See the [specification](MAIN.md#specification) for details.
+
 ## Enabling syntax-aware, composable tooling
 
 There seems to have been many attempts over recent years and maybe decades to improve diff tooling to be more readable for humans, often by making them syntax-aware.[^difftastic][^diffsitter][^prettydiff]
@@ -75,13 +77,13 @@ Perhaps lack of composability is one reason why such tools fail at gaining wides
 Unified diff format has long been at the center of a set of composable tools that produce or consume this format.
 There is `diff` and `git diff` to compare two versions of a tree and produce a diff-format file,
 there are many UI tools to visualize ("refine"!) diff-format output for better human comprehension,
-and there is `patch` and `git apply` to consume a diff-format file and apply/revert/merge those changes to a tree.
+and there is `patch` and `git apply` to consume a diff-format file.
 
 However, unified diff format cannot support syntax-aware diff tools because it doesn't allow such tools to describe their findings.
 Hintful diff format aims to become the diff format at the center of both traditional and such advanced tooling, by being
 1) forward and backward compatible with unified diff format.
 2) syntax-agnostic.
-3) usable for patching and reverse-patching.
+3) usable for patching, revese patching and merging.
 4) effortlessly inspectable by humans.
 5) suitable to express changes with a finer granularity than one line of code.
 6) expressive enough for common code change operations such as renaming, moving and refactoring.
@@ -106,15 +108,17 @@ A simple example follows:
 
 There are two named snippets here.
 Snippet `A` connects code added at one place with code removed from another place, effectively expressing a code movement.
-Snippet `B` connects two equal additions, thereby stating explicitly that they are the same thing.
+Snippet `B` connects three equal additions, thereby stating explicitly that they are the same thing.
+
+See the [specification](MAIN.md#specification) for details.
 
 # How to help
 
 You can help by opening and discussing [issues](https://github.com/svenssonaxel/diff-format/issues) about
   * Inconsistencies, bugs, unclear or incomplete documentation
   * Potential problems or weaknesses, even if you don't have a better idea
-  * Discussions about the advantages and drawbacks of any of the design choices.
-    The [specification](MAIN.md) should include a summary of them in the `Motivation` section.
+  * Advantages and drawbacks of the design choices.
+    These should also be summarized in the [Motivation section in MAIN.md](MAIN.md#motivation).
 
 # Roadmap
 
@@ -123,7 +127,7 @@ You can help by opening and discussing [issues](https://github.com/svenssonaxel/
 **This is where we are currently**
 
 Critique hintful diff format as soon as possible so that it doesn't get finalized with an inherent problem.
-If you suspect a potential problem, open an issue even if you're not sure or don't have a solution.
+If you suspect a potential problem, open an [issue](https://github.com/svenssonaxel/diff-format/issues) even if you're not sure or don't have a solution.
 
 ## Step 2: Tool implementation trial and finalization
 

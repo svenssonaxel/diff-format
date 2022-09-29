@@ -50,7 +50,7 @@ A content line consists of
   * A minus (`-`) meaning the content is found only in the left file.
   * A plus (`+`) meaning the content is found only in the right file.
   * A space (` `) meaning the content is found in both the left and the right file.
-  * An underscore (`_`) having the same meaning as space, except signaling that this context is less usable for human consumption.
+  * An underscore (`_`) having the same meaning as space, except signaling that the content is not patch context, and is less interesting for human consumption.
   * A hash (`#`) meaning the content is found in neither the left nor the right file.
 * Text content
 * A newline marker, which is one of the following:
@@ -75,7 +75,8 @@ Any occurrence of a `\r*\n` sequence in effective content (named snippet content
 
 The syntax `\ No newline at end of file` as used in unified hunks is forbidden.
 
-Similarly to unified hunks, the effective content of each side of the comparison must either end with a newline or be located at the end of a file.
+The constraints on where hunks begin and end are the same for hintful and unified hunks:
+The effective content of each side of the comparison must begin at the beginning of a line and end either after a newline character or at the end of a file.
 
 ### Hintful diff format
 
@@ -104,7 +105,7 @@ Tools designed to consume hintful diff format should prioritize the semantic inf
 
 ### Compat format
 
-The compat diff format is a subset of the hintful diff format, with one added restriction:
+The compat diff format is a subset of the hintful diff format, defined by one added constraint:
 No unprefixed hunks may use the hintful hunk format.
 
 A compat diff format file can be used as-is by tools designed to consume unified diff format.
