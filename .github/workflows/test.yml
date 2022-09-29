@@ -9,8 +9,14 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v2
-    - name: Build container
-      run: ./script build-container
+    - name: Build or fetch container
+      uses: whoan/docker-build-with-cache-action@v5
+      with:
+        username: svenssonaxel
+        password: "${{ secrets.GITHUB_TOKEN }}"
+        registry: docker.pkg.github.com
+        image_name: diff-format-tester
+        context: docker/
     - name: Run tests
       run: ./script run-tests
     - name: Lint scripts

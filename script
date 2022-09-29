@@ -3,7 +3,7 @@ set -e
 die() { echo -e "\e[1m$*\e[0m" >&2; exit 1; }
 [ "$(dirname "$(realpath "$(which "$0")")")" == "$(pwd)" ] || die "$0 Must run from own directory"
 
-image=diff-format-tester
+image=docker.pkg.github.com/svenssonaxel/diff-format/diff-format-tester:latest
 
 docker-run() {
     if [ -t 1 ]; then
