@@ -9,9 +9,9 @@
    1. Binary compatible:<br/>
       It should be possible to correctly express the difference between two binary files, even if the result isn't human readable.
    1. Usable for patching:<br/>
-      It should be possible to produce the right-hand tree exactly given the diff file and the left-hand tree.
+      It should be possible to produce the new tree exactly given the diff file and the old tree.
    1. Usable for reverse patching:<br/>
-      It should be possible to produce the left-hand tree exactly given the diff file and the right-hand tree.
+      It should be possible to produce the old tree exactly given the diff file and the new tree.
    1. Reversible:<br/>
       It should be possible to produce a diff from B to A, given a diff from A to B.
    1. Content agnostic:<br/>
@@ -43,15 +43,15 @@ Instead, this specification
 
 A hintful hunk consists of a one-line hunk header followed by any number of content lines and/or snippet lines.
 
-The hunk header has the same format as in unified diff, except the total number of lines in the hunk (excluding the header) is inserted within parenthesis between the left and right line number information.
+The hunk header has the same format as in unified diff, except the total number of lines in the hunk (excluding the header) is inserted within parenthesis between the old and new line number information.
 
 A content line consists of
 * A status marker, which is one of the following (the three first already supported by unified diff):
-  * A minus (`-`) meaning the content is found only in the left file.
-  * A plus (`+`) meaning the content is found only in the right file.
-  * A space (` `) meaning the content is found in both the left and the right file.
+  * A minus (`-`) meaning the content is found only in the old file.
+  * A plus (`+`) meaning the content is found only in the new file.
+  * A space (` `) meaning the content is found in both the old and the new file.
   * An underscore (`_`) having the same meaning as space, except signaling that the content is not patch context, and is less interesting for human consumption.
-  * A hash (`#`) meaning the content is found in neither the left nor the right file.
+  * A hash (`#`) meaning the content is found in neither the old nor the new file.
 * Text content
 * A newline marker, which is one of the following:
   * A backslash (`\`) signifying end of content.
@@ -60,18 +60,18 @@ A content line consists of
 
 A snippet line consists of
 * A status marker, which is one of the following:
-  * Right-angle (`>`) for using a named snippet for the right-hand side of the comparison, instead of the right file.
-    Subsequent content lines is a comparison following the usual syntax, using the named snippet rather than the right file for its right-hand side, until another right-angle (`>`) status marker.
-  * Left-angle (`<`), conversely, for using a named snippet for the left-hand side of the comparison.
+  * Right-angle (`>`) for using a named snippet for the new side of the comparison, instead of the new file.
+    Subsequent content lines is a comparison following the usual syntax, using the named snippet in place of the new file, until another right-angle (`>`) status marker.
+  * Left-angle (`<`), conversely, for using a named snippet for the old side of the comparison.
 * The name of the snippet.
-  As a special case, if the name is the empty string, the right or left file is again used for the right- or left-hand side of the comparison, starting where it previously left off.
+  As a special case, if the name is the empty string, the new or old file is again used for the new or old side of the comparison, starting where it previously left off.
 * Any number of CR characters and a newline character
 
 A hunk must not end within a snippet.
 
 A snippet name may be used several times, but the content must match.
 
-Any occurrence of a `\r*\n` sequence in effective content (named snippet content or left- or right-hand side file) must be represented by a `\r*\n` sequence in the hintful diff format file.
+Any occurrence of a `\r*\n` sequence in effective content (named snippet content or old or new file) must be represented by a `\r*\n` sequence in the hintful diff format file.
 
 The syntax `\ No newline at end of file` as used in unified hunks is forbidden.
 
@@ -99,7 +99,7 @@ A prefixed file comparison must have a corresponding unprefixed version of the f
 Any or all extended headers and hunks may be missing from the prefixed version of the file comparison.
 Any extended headers present in the prefixed version must also be present in the unprefixed version and match exactly.
 Any hunks present in the prefixed version must be correctly ordered and have a corresponding hunk in the unprefixed version.
-The corresponding unprefixed hunk may be expressed with a different format or in a different way, but must have matching effective content for the left- and right-hand side of the comparison.
+The corresponding unprefixed hunk may be expressed with a different format or in a different way, but must have matching effective content for the old and new side of the comparison.
 
 Tools designed to consume hintful diff format should prioritize the semantic information in the prefixed version over that in the unprefixed.
 
