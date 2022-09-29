@@ -21,6 +21,10 @@ run-tests() {
     docker-run -v "$(pwd):/home/user/diff-format:ro" -w /home/user/diff-format/tests $image ./run-tests
 }
 
+lint-scripts() {
+    docker-run -v "$(pwd):/home/user/diff-format" -w /home/user/diff-format $image shellcheck script implementations/git/* make-img/check-img
+}
+
 check-img() {
     docker-run -v "$(pwd):/home/user/diff-format:ro" -w /home/user/diff-format/make-img $image ./check-img
 }
@@ -37,6 +41,7 @@ case "$CMD" in
 Usage:
   ./script build-container              # Build container for running tests
   ./script run-tests                    # Use container to run tests
+  ./script lint-scripts                 # Use container to lint shell scripts
   ./script check-img                    # Use container to check that img/ is up to date
 EOF
             exit 0

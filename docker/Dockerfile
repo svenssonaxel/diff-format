@@ -1,7 +1,7 @@
 FROM debian:bullseye
 
 # Install dependencies
-RUN apt-get update -y && apt-get install -y git imagemagick make python3 texlive texlive-fonts-extra
+RUN apt-get update -y && apt-get install -y git imagemagick make python3 shellcheck texlive texlive-fonts-extra
 
 # Allow ImageMagick to use PS coder
 RUN sed -ri 's/^( *<)(policy domain="coder" rights="none" pattern="PS" \/)>$/\1!-- \2 -->/' /etc/ImageMagick-*/policy.xml

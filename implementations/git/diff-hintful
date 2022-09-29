@@ -3,7 +3,7 @@ set -eo pipefail
 [ -e "$1"/.git ] && exit 2
 [ -e "$2"/.git ] && exit 2
 dir=$(mktemp -d)
-trap "rm -rf $dir" EXIT
+trap 'rm -rf $dir' EXIT
 cp -pr "$1" "$2" "$dir/"
 a=$(basename "$1")
 b=$(basename "$2")
@@ -74,6 +74,7 @@ fi
     s/<sp>/ /g;
     '"$(for a in 0 1 8 9 a b c d e f; do
           for b in 0 1 2 3 4 5 6 7 8 9 a b c d e f; do
+            # shellcheck disable=SC2059
             printf 's/<'$a$b'>/\\x'$a$b'/g;\n';
           done;
         done | sed '/0[ad]/d')"'
@@ -87,7 +88,7 @@ fi
 
 while grep -Fa '<unknown>' hintful.diff >/dev/null; do
     line=$(<hintful.diff sed -n -r '1,/<unknown>/p' | wc -l)
-    count=$(<hintful.diff sed -n -r $line',/^[^-+ ]/p' | grep -Eac '^[-+ ]')
+    count=$(<hintful.diff sed -n -r "$line"',/^[^-+ ]/p' | grep -Eac '^[-+ ]')
     sed -ri "1,$line s/<unknown>/$count/" hintful.diff
 done
 cat hintful.diff

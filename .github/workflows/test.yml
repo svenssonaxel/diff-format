@@ -13,5 +13,7 @@ jobs:
       run: ./script build-container
     - name: Run tests
       run: ./script run-tests
+    - name: Lint scripts
+      run: ./script lint-scripts
     - name: Check img/
       run: ./script check-img

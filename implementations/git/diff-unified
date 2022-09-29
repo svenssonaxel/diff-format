@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e
+set -eo pipefail
 [ -e "$1"/.git ] && exit 2
 [ -e "$2"/.git ] && exit 2
 (

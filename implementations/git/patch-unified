@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -eo pipefail
 cd "$1"
 [ -e .git ] && exit 2
 git init -q
