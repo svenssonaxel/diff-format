@@ -162,12 +162,14 @@ class TestAll(unittest.TestCase):
             _local.nestTestMsgs = prevMsgs
 
     # Deduplication of generated tests
+    _dedupLock=threading.Lock()
     _doneTests=[]
     def alreadyRun(self, *testId):
-        if(testId in self._doneTests):
-            return True
-        self._doneTests.append(testId)
-        return False
+        with self._dedupLock:
+            if(testId in self._doneTests):
+                return True
+            self._doneTests.append(testId)
+            return False
 
     # Will be executed by unittest.main
 
