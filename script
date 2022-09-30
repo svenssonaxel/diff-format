@@ -29,6 +29,13 @@ check-img() {
     docker-run -v "$(pwd):/home/user/diff-format:ro" -w /home/user/diff-format/make-img $image ./check-img
 }
 
+build-and-validate() {
+    build-container
+    run-tests
+    lint-scripts
+    check-img
+}
+
 update-img() {
     rm -rf img/
     docker-run -v "$(pwd):/home/user/diff-format" -w /home/user/diff-format/make-img $image make -j
@@ -37,7 +44,7 @@ update-img() {
 CMD="$1"
 
 case "$CMD" in
-    build-container|run-tests|lint-scripts|check-img|update-img)
+    build-container|run-tests|lint-scripts|check-img|build-and-validate|update-img)
         $CMD
         ;;
     *)
@@ -48,6 +55,7 @@ Usage:
   ./script run-tests                    # Use container to run tests
   ./script lint-scripts                 # Use container to lint shell scripts
   ./script check-img                    # Use container to check that img/ is up to date
+  ./script build-and-validate           # Run all of the above in order
   ./script update-img                   # Use container to update img/
 EOF
             exit 0
