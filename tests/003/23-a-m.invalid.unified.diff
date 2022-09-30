@@ -21,8 +21,8 @@
 |-==\
 |+).toBe(\
 | result\
-|-, `Failed test:${JSON.stringify({str, result})}`)$
-|+);$
+|-, `Failed test:${JSON.stringify({str, result})}`\
+| );$
 |+    })$
 | }$
 diff --blabla a/luhn.test.js b/luhn.test.js
@@ -38,7 +38,7 @@ index 863ee9f..2763cf7 100644
  ];
  
  for(const {str, result} of testCases){
--    assert(luhn.check(str)==result, `Failed test:${JSON.stringify({str, result})}`)
+-    assert(luhn.check(str)==result, `Failed test:${JSON.stringify({str, result})}`);
 +    test(JSON.stringify({str, result}), ()=>{
 +        expect(luhn.check(str)).toBe(result);
 +    })

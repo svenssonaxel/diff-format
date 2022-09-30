@@ -14,5 +14,5 @@ const testCases = [
 ];
 
 for(const {str, result} of testCases){
-    assert(luhn.check(str)==result, `Failed test:${JSON.stringify({str, result})}`)
+    assert(luhn.check(str)==result, `Failed test:${JSON.stringify({str, result})}`);
 }

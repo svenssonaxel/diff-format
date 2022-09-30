@@ -11,7 +11,7 @@ index 863ee9f..2763cf7 100644
  ];
  
  for(const {str, result} of testCases){
--    assert(luhn.check(str)==result, `Failed test:${JSON.stringify({str, result})}`)
+-    assert(luhn.check(str)==result, `Failed test:${JSON.stringify({str, result})}`);
 +    test(JSON.stringify({str, result}), ()=>{
 +        expect(luhn.check(str)).toBe(result);
 +    })
@@ -39,8 +39,8 @@ index 863ee9f..2763cf7 100644
 |-==\
 |+).toBe(\
 | result\
-|-, `Failed test:${JSON.stringify({str, result})}`)$
-|+);$
+|-, `Failed test:${JSON.stringify({str, result})}`\
+| );$
 |+    })$
 | }$
 diff --git a/package.json b/package.json

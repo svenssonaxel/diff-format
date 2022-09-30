@@ -21,8 +21,8 @@ index 863ee9f..2763cf7 100644
 -==\
 +).toBe(\
  result\
--, `Failed test:${JSON.stringify({str, result})}`)$
-+);$
+-, `Failed test:${JSON.stringify({str, result})}`\
+ );$
 +    })$
  }$
 diff --hintful a/package.json b/package.json
