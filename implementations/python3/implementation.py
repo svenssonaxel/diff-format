@@ -797,7 +797,7 @@ def latexFormatContents(inputObjs, task):
         if obj['prefix']:
             yield {'op': 'begin', 'latexmacro': 'Prefix'}
             yield obj['prefix']
-            yield {'op', 'end'}
+            yield {'op': 'end'}
         latexMacro = task
         latexMacro += hunktype.capitalize()
         if(op in [
