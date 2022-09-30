@@ -786,10 +786,28 @@ def latexFormatOperations(inputObjs):
             yield obj
 def latexFormatContents(inputObjs, task):
     hunktype=''
+    fileKey=None
+    seenPrefixedHunks=set()
+    suppressed=False
     for obj in inputObjs:
         op=obj['op']
+        if(op=='beginfile'):
+            fileKey=(obj['leftfile'], obj['rightfile'])
         if(op=='beginhunk'):
+            hunkKey=(*fileKey,
+                     obj['leftstartline'],
+                     obj['leftlinecount'],
+                     obj['rightstartline'],
+                     obj['rightlinecount'],
+                     )
             hunktype=obj['hunktype']
+            if(obj['prefix']):
+                seenPrefixedHunks.add(hunkKey)
+                suppressed=False
+            elif(hunkKey in seenPrefixedHunks):
+                suppressed=True
+            else:
+                suppressed=False
         if(op=='endhunk'):
             hunktype=''
         if(op in ['endleftsnippet', 'endrightsnippet', 'endhunk', 'endfile']):
@@ -816,6 +834,8 @@ def latexFormatContents(inputObjs, task):
             latexMacro += op.capitalize()
         if(op.endswith('snippet')):
             latexMacro += 'Begin' if obj['name'] else 'End'
+        if(suppressed and (op.endswith('Content') or op=='beginhunk')):
+            latexMacro += "Suppressed"
         yield {'op': 'begin', 'latexmacro': latexMacro}
         if(op=='beginhunk'):
             yield from [

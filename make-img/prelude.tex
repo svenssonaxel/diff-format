@@ -53,14 +53,19 @@
 \newcommand\HighlightHintfulRightsnippetEnd{\HighlightHintfulRightsnippetBegin}
 \newcommand\HighlightLabelleft[1]{\bold{red}{#1}\nl}
 \newcommand\HighlightLabelright[1]{\bold{green}{#1}\nl}
+\newcommand\HighlightUnifiedBeginhunkSuppressed[1]{\fg{lightgrey}{\textbf{#1}\nl}}
 \newcommand\HighlightUnifiedBeginhunk{\HighlightHintfulBeginhunk}
 \newcommand\HighlightUnifiedLeftContentCont[1]{\fg{red}{{-}\Bar}\bg{lightred}{#1\UnifiedCont}}
+\newcommand\HighlightUnifiedLeftContentLineSuppressed[1]{\fg{lightgrey}{{-}#1}\nl}
 \newcommand\HighlightUnifiedLeftContentLine[1]{\fg{red}{{-}\Bar}\bg{lightred}{#1}\nl}
 \newcommand\HighlightUnifiedLeftRightContentCont[1]{\fg{grey}{\spc\Bar}#1\fg{grey}\UnifiedCont}
+\newcommand\HighlightUnifiedLeftRightContentLineSuppressed[1]{\fg{lightgrey}{\spc#1}\nl}
 \newcommand\HighlightUnifiedLeftRightContentLine[1]{\fg{grey}{\spc\Bar}#1\nl}
 \newcommand\HighlightUnifiedRightContentCont[1]{\fg{green}{+\Bar}\bg{lightgreen}{#1\UnifiedCont}}
+\newcommand\HighlightUnifiedRightContentLineSuppressed[1]{\fg{lightgrey}{+#1}\nl}
 \newcommand\HighlightUnifiedRightContentLine[1]{\fg{green}{+\Bar}\bg{lightgreen}{#1}\nl}
 \newcommand\LineFollowedBySnippetEnd[2]{\suppressOneNl#1#2\nl}
+\newcommand\Prefix[1]{\fg{grey}{#1}}
 \newcommand\VisualizeHeader{\HighlightHeader}
 \newcommand\VisualizeHintfulBeginhunk{\HighlightHintfulBeginhunk}
 \newcommand\VisualizeHintfulIgnoreContentCont[1]{\bg{lightgrey}{#1}}
@@ -89,6 +94,10 @@
 \newcommand\VisualizeHintfulRightsnippetEnd{\VisualizeHintfulRightsnippetBegin}
 \newcommand\VisualizeLabelleft{\HighlightLabelleft}
 \newcommand\VisualizeLabelright{\HighlightLabelright}
+\newcommand\VisualizeUnifiedBeginhunk{\HighlightUnifiedBeginhunk}
+\newcommand\VisualizeUnifiedLeftContentLine{\HighlightUnifiedLeftContentLine}
+\newcommand\VisualizeUnifiedLeftRightContentLine{\HighlightUnifiedLeftRightContentLine}
+\newcommand\VisualizeUnifiedRightContentLine{\HighlightUnifiedRightContentLine}
 
 % Style
 \usepackage[left=1mm, top=1mm, paperwidth=1000mm, paperheight=2000mm]{geometry}

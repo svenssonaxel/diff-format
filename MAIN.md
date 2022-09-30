@@ -318,6 +318,11 @@ There are two reasons for this:
   The newline markers are useful for expressing non-line-based content, but they are unnecessarily distracting for line-based content.
   Supporting both hunk formats provides flexibility.
 
+Example:
+<picture>
+  <img alt="A highlighted hintful diff with mixed hunk formats" src="img/mixing-hunk-formats.hintful.diff.highlighted.png"/>
+</picture>
+
 ### Prefixed file comparisons and compatibility
 
 Backward compatibility means that newer tools are compatible with older formats.
@@ -336,3 +341,13 @@ One might even choose to extend a consumer to read hintful format without distin
 This choice has a small price:
 It would technically not be entirely backward compatible since it is possible to violate the rules for prefixed file comparisons and thereby create an invalid hintful diff that is still a valid unified diff.
 This is however unlikely to have ever happened, since previously there has been no reason to create unified diff format files containing lines beginning with `|`.
+
+Here's an example of a compat diff format file, highlighted:
+<picture>
+  <img alt="A highlighted compat diff" src="img/compat-format-example.compat.diff.highlighted.png"/>
+</picture>
+
+The best way to visualize a compat diff format file is probably to first convert it to a hintful format file with no prefixed hunks:
+<picture>
+  <img alt="A visualization of a compat diff converted to a hintful diff" src="img/compat-format-example.converted-from-compat.hintful.diff.visualized.png"/>
+</picture>

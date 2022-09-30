@@ -1,0 +1,13 @@
+diff --hintful a/file.txt b/file.txt
+--- a/file.txt
++++ b/file.txt
+@@ -1,2 +1,2 @@
+-First line
++Completely changed.
+ Second line unchanged.
+@@ -6,2 (5) +6,2 @@
+ Sixth line unchanged.$
+ Last line has a \
+-typpo\
++typo\
+ fixed.$
