@@ -83,7 +83,7 @@ The effective content of each side of the comparison must begin at the beginning
 The hintful diff format is an extension of the unified diff format.
 The exact meaning of "unified diff format" is unfortunately implementation dependent.
 
-The extentions are as follows:
+The extensions are as follows:
 
 #### Hunk formats
 
@@ -157,7 +157,7 @@ Consider the following example:
 
 Here, the diff tool detected two changes; the addition of an enclosing `if` block, and the removal of an array element.
 The first change produces an indent increase for every line, even for the line that in the next change is deleted.
-So, while the four spaces after `#` in the diff output exists neither in the old or the new file, they do exist in an intermediate step, and are useful in visualizations for human consumption:
+So, while the four spaces after `#` in the diff output exists in neither the old nor the new file, they do exist in an intermediate step, and are useful in visualizations for human consumption:
 
 <picture>
   <img alt="A visualization of a hintful diff of a simple change to Python code" src="img/simple-python.hintful.diff.visualized.png"/>
