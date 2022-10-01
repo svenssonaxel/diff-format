@@ -25,7 +25,7 @@ index 863ee9f..2763cf7 100644
 | const luhn = require('./luhn.js');
 | 
 | const testCases = [
-|@@ -13,5 (17) +12,7 @@ const testCases = [
+|@@ -13,5 17\ +12,7 @@ const testCases = [
 | ];$
 | $
 | for(const {str, result} of testCases){$

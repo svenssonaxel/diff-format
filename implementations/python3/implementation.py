@@ -38,12 +38,12 @@ def parseDiff(inputLines):
         linem = m(r'^(\|?).*\n$', line)
         if linem[1]!=filePrefix and not m(r'^(\|?)diff --(git|hintful).*\n$', line):
             die('Expected prefix to match previous line')
-        linem = m(r'^(\|?)@@ +-([0-9]+)(,[0-9]+)? +(\([0-9]+\) +)?\+([0-9]+)(,[0-9]+)? +@@(.*)\n$', line)
+        linem = m(r'^(\|?)@@ +-([0-9]+)(,[0-9]+)? +(\^*[0-9]+\\? +)?\+([0-9]+)(,[0-9]+)? +@@(.*)\n$', line)
         if(linem):
             prefix = linem[1]
             leftstartlineraw = linem[2]
             leftlinecountraw = linem[3]
-            hunklinecountraw = linem[4]
+            hintfulextensionraw = linem[4]
             rightstartlineraw = linem[5]
             rightlinecountraw = linem[6]
             comment = linem[7]
@@ -51,8 +51,13 @@ def parseDiff(inputLines):
             rightstartline = int(rightstartlineraw)
             leftlinecount = int(leftlinecountraw[1:] if leftlinecountraw else '1')
             rightlinecount = int(rightlinecountraw[1:] if rightlinecountraw else '1')
-            hunklinecount = int(m(r'^\(([0-9]+)\) +$', hunklinecountraw)[1]) if hunklinecountraw else None
+            [snippetcolumncountraw, hunklinecountraw, newlinemarkersraw] = [None, None, None]
+            if hintfulextensionraw:
+                [_, snippetcolumncountraw, hunklinecountraw, newlinemarkersraw] = m(r'(\^*)([0-9]+)(\\?) +', hintfulextensionraw)
+            hunklinecount = int(hunklinecountraw) if hunklinecountraw else None
             hunktype = 'hintful' if hunklinecountraw else 'unified'
+            snippetcolumncount = len(snippetcolumncountraw) if snippetcolumncountraw else 0
+            newlinemarkers = bool(newlinemarkersraw)
             hunkKey = (fileKey, leftstartline, leftlinecount, rightstartline, rightlinecount)
             extraFields = {'fileformat': fileFormat, 'filekey': fileKey, 'hunkkey': hunkKey}
             hunkheader = {
@@ -71,6 +76,8 @@ def parseDiff(inputLines):
                 'rightlinecount': rightlinecount,
                 'hunklinecount': hunklinecount,
                 'hunktype': hunktype,
+                'snippetcolumncount': snippetcolumncount,
+                'newlinemarkers': newlinemarkers,
             }
             yield hunkheader
             if(hunktype=='hintful'):
@@ -115,7 +122,7 @@ def parseDiff(inputLines):
                 'right': line2m[2],
                 }
             continue
-        if(m(r'^\|?[-+ _#<>].*\n$', line)):
+        if(m(r'^\|?([.=]*[-+ _#]|[ ^]+#).*\n$', line)):
             die(f'Hunk content without header: {line}')
         linem = m(r'^(\|?)index ([0-9a-f]{7,})\.\.([0-9a-f]{7,})( +[0-7]{6})?\r*\n$', line)
         if(linem):
@@ -204,8 +211,7 @@ def parseUnifiedHunk(header, inputLines, extraFields):
                 'op': {'-': 'leftcontent', '+': 'rightcontent', ' ': 'bothcontent'}[opchar],
                 'prefix': prefix,
                 'content': content,
-                'leftsnippetname': '',
-                'rightsnippetname': '',
+                'snippetshavecontent': [],
                 **extraFields,
             }
             if(opchar in '- '):
@@ -228,71 +234,89 @@ def parseHintfulHunk(header, inputLines, extraFields):
     state={
         'leftcontent': '',
         'rightcontent': '',
-        'leftsnippetname': '',
-        'rightsnippetname': '',
-        'leftsnippetcontent': '',
-        'rightsnippetcontent': '',
+        'snippets': [{'name':'', 'content':'', 'index':x} for x in range(header['snippetcolumncount'])],
     }
+    cc=header['snippetcolumncount']
+    nlm=header['newlinemarkers']
     for _ in range(header['hunklinecount']):
         line = nextOrDie(inputLines)
         linem = m(r'^(\|?).*\n$', line)
         if linem[1]!=header['prefix']:
             die('Expected prefix to match previous line')
-        linem = m(r'^(\|?)([-+ _#])(.*)([$\\])(\r*\n)$', line)
+        linem = m(r'^(\|?)([.=]{'+str(cc)+r'})([-+ _#])(.*)('+(r'[$\\]' if nlm else '')+')(\r*\n)$', line)
         if(linem):
             prefix = linem[1]
-            opchar = linem[2]
-            content = linem[3]
-            nlmarker = linem[4]
-            crlf = linem[5]
+            snippetindicators = linem[2]
+            opchar = linem[3]
+            content = linem[4]
+            nlmarker = linem[5]
+            crlf = linem[6]
             if(nlmarker=='$'):
                 if(content.endswith('\r')):
                     die('CR character not allowed before $ newline marker')
                 content += crlf
+            if(nlmarker==''):
+                content += crlf
             op = {'-': 'leftcontent', '+': 'rightcontent', ' ': 'bothcontent', '_': 'bothlowprioritycontent', '#': 'ignorecontent'}[opchar]
+            snippetshavecontent = [ x=='=' for x in snippetindicators ]
             yield {
                 'op': op,
                 'prefix': prefix,
                 'content': content,
-                'leftsnippetname': state['leftsnippetname'],
-                'rightsnippetname': state['rightsnippetname'],
+                'snippetshavecontent': snippetshavecontent,
                 **extraFields,
             }
             for side in ['left', 'right']:
                 if(op in [f'{side}content', 'bothcontent', 'bothlowprioritycontent']):
-                    target = f'{side}snippetcontent' if state[f'{side}snippetname'] else f'{side}content'
-                    if(state[target].endswith('\r') and m(r'^\r*\n', content)):
+                    if(state[f'{side}content'].endswith('\r') and m(r'^\r*\n', content)):
                         die(r'\r*\n sequence must not be split.')
-                    state[target]+=content
+                    state[f'{side}content']+=content
+            for snippet in state['snippets']:
+                if(snippetshavecontent[snippet['index']]):
+                    if(not snippet['name']):
+                        die('= in inactive snippet column')
+                    if(snippet['content'].endswith('\r') and m(r'^\r*\n', content)):
+                        die(r'\r*\n sequence must not be split.')
+                    snippet['content']+=content
             continue
-        linem = m(r'^(\|?)([<>])([^\r]*)\r*\n$', line)
+        linem = m(r'^(\|?)([ ^]{'+str(cc)+r'})#([^\r]*)\r*\n$', line)
         if(linem):
             prefix = linem[1]
-            opchar = linem[2]
+            snippetindicators = linem[2]
             name = linem[3]
-            op = {'<': 'leftsnippet', '>': 'rightsnippet'}[opchar]
-            for side in ['left', 'right']:
-                if(op==f'{side}snippet'):
-                    if state[f'{side}snippetname']:
+            if(m(r' {'+str(cc)+r'}', snippetindicators)):
+                die('Snippet line must have at least one caret.')
+            for snippet in state['snippets']:
+                if(snippetindicators[snippet['index']]=='^'):
+                    if snippet['name']:
                         yield {
-                            'op': f'end{side}snippet',
+                            'op': f'endsnippet',
                             'prefix': prefix,
-                            'name': state[f'{side}snippetname'],
-                            'content': state[f'{side}snippetcontent'],
+                            'name': snippet['name'],
+                            'content': snippet['content'],
                             **extraFields,
                         }
-                    state[f'{side}snippetname']=name
-                    state[f'{side}snippetcontent']=''
+                    snippet['name']=name
+                    snippet['content']=''
             yield {
-                'op': op,
+                'op': 'beginsnippets',
                 'prefix': prefix,
                 'name': name,
+                'snippetcolumns': [ x=='^' for x in snippetindicators ],
                 **extraFields,
             }
             continue
         die(f'Corrupt hunk: Strange line: {line}')
-    if(state['leftsnippetname'] or state['rightsnippetname']):
-        die('Hunk ended inside snippet')
+    for snippet in state['snippets']:
+        if snippet['name']:
+            yield {
+                'op': f'endsnippet',
+                'prefix': prefix,
+                'name': snippet['name'],
+                'snippetcolumn': snippet['index'],
+                'content': snippet['content'],
+                **extraFields,
+            }
     yield {
         'op': 'endhunk',
         'prefix': header['prefix'],
@@ -303,11 +327,15 @@ def parseHintfulHunk(header, inputLines, extraFields):
 
 def formatDiff(inputObjs):
     hunktype=None
+    cc=None
+    nlm=None
     for obj in inputObjs:
         op=obj['op']
         prefix=obj['prefix']
         if(op=='beginhunk'):
             hunktype=obj['hunktype']
+            cc=obj['snippetcolumncount']
+            nlm=obj['newlinemarkers']
             yield from [
                 prefix,
                 '@@ -',
@@ -316,9 +344,10 @@ def formatDiff(inputObjs):
             ]
             if(hunktype=='hintful'):
                 yield from [
-                    ' (',
-                    obj['hunklinecount'],
-                    ')',
+                    ' ',
+                    '^' * obj['snippetcolumncount'],
+                    str(obj['hunklinecount']),
+                    '\\' if obj['newlinemarkers'] else '',
                 ]
             yield from [
                 ' +',
@@ -330,6 +359,8 @@ def formatDiff(inputObjs):
             ]
         elif(op.endswith('content')):
             yield prefix
+            for snippetindex in range(cc):
+                yield '=' if obj['snippetshavecontent'][snippetindex] else '.'
             yield {'leftcontent': '-', 'rightcontent': '+', 'bothcontent': ' ', 'bothlowprioritycontent': '_', 'ignorecontent': '#'}[op]
             content = obj['content']
             if(hunktype=='unified'):
@@ -337,27 +368,36 @@ def formatDiff(inputObjs):
                 if not obj['content'].endswith('\n'):
                     yield '\n\\ No newline at end of file\n'
             elif(hunktype=='hintful'):
-                if content.endswith('\n'):
-                    contentm = m(r'^(.*[^\r])?(\r*\n)$', content)
-                    yield contentm[1] or ''
-                    yield '$'
-                    yield contentm[2]
+                if nlm:
+                    if content.endswith('\n'):
+                        contentm = m(r'^(.*[^\r])?(\r*\n)$', content)
+                        yield contentm[1] or ''
+                        yield '$'
+                        yield contentm[2]
+                    else:
+                        yield content
+                        yield '\\\n'
                 else:
-                    yield content
-                    yield '\\\n'
+                    if contents.endswith('\n'):
+                        yield content
+                    else:
+                        die('Content must end with newline in hintful mode without newline marker')
             else:
                 die('Unexpected hunk type')
-        elif(op in ['leftsnippet', 'rightsnippet']):
+        elif(op=='beginsnippets'):
             yield from [
                 prefix,
-                {'leftsnippet': '<', 'rightsnippet': '>'}[op],
+                *[ '^' if x else ' ' for x in obj['snippetcolumns'] ],
+                '#',
                 obj['name'],
                 '\n',
             ]
-        elif(op in ['endleftsnippet', 'endrightsnippet']):
+        elif(op=='endsnippet'):
             pass
         elif(op=='endhunk'):
             hunktype=None
+            cc=None
+            nlm=None
         elif(op=='endfile'):
             pass
         elif(op in ['labels']):
@@ -386,35 +426,17 @@ def formatDiff(inputObjs):
             die(f'formatDiff cannot process operation {op}')
 
 def removeSnippets(inputObjs):
-    leftsnippetname=''
-    rightsnippetname=''
     for obj in inputObjs:
         op=obj['op']
-        if(op=='leftcontent'):
-            if(leftsnippetname==''):
-                yield obj
-        elif(op=='rightcontent'):
-            if(rightsnippetname==''):
-                yield obj
-        elif(op in ['bothcontent', 'bothlowprioritycontent']):
-            if(leftsnippetname=='' and rightsnippetname==''):
-                yield obj
-            elif(leftsnippetname==''):
-                yield {**obj, 'op': 'leftcontent'}
-            elif(rightsnippetname==''):
-                yield {**obj, 'op': 'rightcontent'}
-        elif(op=='ignorecontent'):
+        if(op=='ignorecontent' and True in obj['snippetshavecontent']):
             pass
-        elif(op=='leftsnippet'):
-            leftsnippetname=obj['name']
-        elif(op=='rightsnippet'):
-            rightsnippetname=obj['name']
-        elif(op in ['endleftsnippet', 'endrightsnippet']):
+        elif(op.endswith('content')):
+            yield {
+                **obj,
+                'snippetshavecontent': [],
+            }
+        elif(op in ['beginsnippets', 'endsnippet']):
             pass
-        elif(op=='endhunk' and
-           (leftsnippetname!='' or
-            rightsnippetname!='')):
-            die('Hunk ended inside named snippet')
         elif(op in ['beginfile', 'endfile', 'index', 'labels', 'leftfilemode', 'rightfilemode', 'similarity-index', 'rename', 'beginhunk', 'endhunk']):
             yield obj
         else:
@@ -448,20 +470,19 @@ def convertUnprefixedHunksToUnified(inputObjs):
                     'op': var,
                     'prefix': '',
                     'content': lines[0]+'\n',
-                    'leftsnippetname': '',
-                    'rightsnippetname': '',
+                    'snippetshavecontent': [],
                 }
                 state[var]='\n'.join(lines[1:])
         checkInvariants()
         if(op=='beginhunk'):
-            yield {**obj, 'fileformat': 'git', 'hunktype': 'unified'}
+            yield {**obj, 'fileformat': 'git', 'hunktype': 'unified', 'snippetcolumncount': 0}
         elif(op=='beginfile'):
             yield {**obj, 'fileformat': 'git'}
-        elif(op.endswith('snippet')):
+        elif(op in ['beginsnippets', 'endsnippet']):
             pass
         elif(op.endswith('content')):
-            l=(op in ['leftcontent', 'bothcontent', 'bothlowprioritycontent'] and not obj['leftsnippetname'])
-            r=(op in ['rightcontent', 'bothcontent', 'bothlowprioritycontent'] and not obj['rightsnippetname'])
+            l=(op in ['leftcontent', 'bothcontent', 'bothlowprioritycontent'])
+            r=(op in ['rightcontent', 'bothcontent', 'bothlowprioritycontent'])
             if(state['bothcontent'] and xor(l, r)):
                 state['leftcontent']=state['bothcontent']
                 state['rightcontent']=state['bothcontent']
@@ -503,20 +524,17 @@ def switchleftright(text):
 
 def reverse(inputObjs):
     for obj in inputObjs:
-        op=obj['op']
-        if(m(r'^(left|right).*$', op)):
-            yield {**obj, 'op': switchleftright(op)}
-        else:
-            sendobj={}
-            for key in obj:
-                sendobj[switchleftright(key)] = obj[key]
-            yield sendobj
+        yield {
+            switchleftright(key):
+            switchleftright(obj['op']) if key=='op' else obj[key]
+            for key in obj
+        }
 
 def validateSnippets(inputObjs):
     snippetcache={}
     for obj in inputObjs:
         op=obj['op']
-        if(op in ['endleftsnippet', 'endrightsnippet']):
+        if(op=='endsnippet'):
             name=obj['name']
             content=obj['content']
             if(name in snippetcache and snippetcache[name]!=content):
@@ -606,7 +624,9 @@ def convertHunksToHintful(inputObjs, onlyPrefixed=False):
                 'fileformat': 'hintful',
                 'hunklinecount': hunklinecount,
                 'hunklinecountraw': str(hunklinecount),
-                'hunktype': 'hintful'
+                'hunktype': 'hintful',
+                'newlinemarkers': bool(filter(lambda x: x['op'].endswith('content') and not x['content'].endswith('\n'),
+                                              obj['contents'])),
             }
         else:
             yield obj
@@ -771,17 +791,23 @@ def latexFormatOperations(inputObjs):
         elif(op.endswith('content')):
             newop=""
             if(op in ['leftcontent', 'bothcontent', 'bothlowprioritycontent']):
-                newop += 'Left' + ("snippet" if obj['leftsnippetname'] else "")
+                newop += 'Left'
             if(op in ['rightcontent', 'bothcontent', 'bothlowprioritycontent']):
-                newop += 'Right' + ("snippet" if obj['rightsnippetname'] else "")
+                newop += 'Right'
             if(op=='ignorecontent'):
                 newop += 'Ignore'
             if(op=='bothlowprioritycontent'):
                 newop += 'Lowprio'
             if(not newop):
                 die('Bad content type in preLatexFormat')
+            for snippetindex, snippethascontent in enumerate(obj['snippetshavecontent']):
+                newop += 'Snippet' + ['one', 'two'][snippetindex] + ('yes' if snippethascontent else 'no')
             newop += 'Content'
             yield {**obj, 'op': newop}
+        elif(op=='beginsnippets'):
+            for snippetindex, snippetindicator in enumerate(obj['snippetcolumns']):
+                if(snippetindicator):
+                    yield {**obj, 'op': 'snippet' + ['one', 'two'][snippetindex]}
         else:
             yield obj
 def latexFormatContents(inputObjs, task):
@@ -810,7 +836,7 @@ def latexFormatContents(inputObjs, task):
                 suppressed=False
         if(op=='endhunk'):
             hunktype=''
-        if(op in ['endleftsnippet', 'endrightsnippet', 'endhunk', 'endfile']):
+        if(op in ['endsnippet', 'endhunk', 'endfile']):
             continue
         if obj['prefix']:
             yield {'op': 'begin', 'latexmacro': 'Prefix'}
@@ -832,7 +858,7 @@ def latexFormatContents(inputObjs, task):
             latexMacro += op + ('Line' if obj['content'].endswith('\n') else 'Cont')
         else:
             latexMacro += op.capitalize()
-        if(op.endswith('snippet')):
+        if(op.startswith('snippet')):
             latexMacro += 'Begin' if obj['name'] else 'End'
         if(suppressed and (op.endswith('Content') or op=='beginhunk')):
             latexMacro += "Suppressed"
@@ -845,9 +871,10 @@ def latexFormatContents(inputObjs, task):
             ]
             if(hunktype=='hintful'):
                 yield from [
-                    ' (',
-                    obj['hunklinecount'],
-                    ')',
+                    ' ',
+                    '^' * obj['snippetcolumncount'],
+                    str(obj['hunklinecount']),
+                    '\\' if obj['newlinemarkers'] else '',
                 ]
             yield from [
                 ' +',
@@ -863,7 +890,7 @@ def latexFormatContents(inputObjs, task):
                 yield contentm[1] or ''
             else:
                 yield content
-        elif(op in ['leftsnippet', 'rightsnippet']):
+        elif(op.startswith('snippet')):
             yield obj['name']
         elif(op in ['labelleft']):
             yield f"--- {obj['left']}"
@@ -914,7 +941,7 @@ def latexFormatCombine(inputObjs):
     def combineHelper(expr1, expr2):
         macro1 = expr1[0]
         macro2 = expr2[0]
-        if(macro1.endswith('ContentLine') and m(r'^VisualizeHintful.*snippetEnd$', macro2)):
+        if(macro1.endswith('ContentLine') and m(r'^VisualizeHintful.*Snippet(one|two)End$', macro2)):
             return ['LineFollowedBySnippetEnd',expr1,expr2]
         return None
     prevObj=None
