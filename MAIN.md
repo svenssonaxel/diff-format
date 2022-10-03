@@ -319,6 +319,7 @@ There are two reasons for this:
   Supporting both hunk formats provides flexibility.
 
 Example:
+
 <picture>
   <img alt="A highlighted hintful diff with mixed hunk formats" src="img/mixing-hunk-formats.hintful.diff.highlighted.png"/>
 </picture>
