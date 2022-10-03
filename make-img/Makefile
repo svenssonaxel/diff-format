@@ -12,18 +12,17 @@ all: \
  ../img/simple-python.unified.diff.highlighted.png \
 
 ../img/%.png: %.dvi ../img
+# Exclude some chunks to make png images reproducible and independent of LaTeX page size.
 	convert \
-		-quality 300 \
+		-density 300 \
+		-quality 100 \
 		-colorspace RGB \
-		-trim \
-		-border 10 \
-		-bordercolor white \
-		-define png:exclude-chunks=canv,date,phys,text,time,ztxt \
-		$< $@ # Exclude some chunks to make png images reproducible and independent of LaTeX page size.
-	[ -f $@ ] # Check that input .dvi was only one page
+		-define png:exclude-chunks=canv,date,text,time,ztxt \
+		$< $@
+# Check that input .dvi was only one page
+	[ -f $@ ]
 %.dvi: %.tex
-	latex -halt-on-error $<
-	rm $*.aux $*.log
+	trap "rm $*.aux $*.log" EXIT; latex -halt-on-error $<
 %.tex: %.content.tex prelude.tex
 	cat prelude.tex $< > $@
 	printf '\\end{document}' >> $@

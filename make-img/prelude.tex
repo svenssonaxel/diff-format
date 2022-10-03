@@ -1,4 +1,4 @@
-\documentclass{article}
+\documentclass[varwidth=16383pt, border=3pt]{standalone}
 
 % Colors
 \usepackage{xcolor}
@@ -16,10 +16,10 @@
 
 % Util
 \newcommand\Backslash{\bold{magenta}{\textbackslash}}
-\newcommand\Bar{\kern-1pt\rule[-\dp\strutbox]{1pt}{\baselineskip}}
+\newcommand\Bar{\kern-.2pt\rule[-\dp\strutbox]{.2pt}{\baselineskip}}
 \newcommand\Dollar{\bold{magenta}{\$}}
-\newcommand\UnifiedCont{\nl\fg{grey}{\textbackslash\spc{No newline at end of file}\nl}}
-\newcommand\bg[2]{\strut{\settowidth{\tmpWd}{#2\kern1pt}{\rlap{\color{#1}{\rule[-\dp\strutbox]{\tmpWd}{\dimexpr\ht\strutbox+\dp\strutbox}}}}#2}}
+\newcommand\UnifiedCont{\nl\fg{grey}{\textbackslash\spc{No newline at end of file}}\nl}
+\newcommand\bg[2]{\strut{\settowidth{\tmpWd}{#2}{\rlap{\color{#1}{\rule[-\dp\strutbox]{\tmpWd}{\dimexpr\ht\strutbox+\dp\strutbox}}}}#2}}
 \newcommand\bold[2]{\fg{#1}{\textbf{#2}}}
 \newcommand\fg[2]{{\color{#1}#2}}
 \newcommand\nl{\par}
@@ -55,13 +55,13 @@
 \newcommand\HighlightLabelright[1]{\bold{green}{#1}\nl}
 \newcommand\HighlightUnifiedBeginhunkSuppressed[1]{\fg{lightgrey}{\textbf{#1}\nl}}
 \newcommand\HighlightUnifiedBeginhunk{\HighlightHintfulBeginhunk}
-\newcommand\HighlightUnifiedLeftContentCont[1]{\fg{red}{{-}\Bar}\bg{lightred}{#1\UnifiedCont}}
+\newcommand\HighlightUnifiedLeftContentCont[1]{\fg{red}{{-}\Bar}\bg{lightred}{#1}\UnifiedCont}
 \newcommand\HighlightUnifiedLeftContentLineSuppressed[1]{\fg{lightgrey}{{-}#1}\nl}
 \newcommand\HighlightUnifiedLeftContentLine[1]{\fg{red}{{-}\Bar}\bg{lightred}{#1}\nl}
-\newcommand\HighlightUnifiedLeftRightContentCont[1]{\fg{grey}{\spc\Bar}#1\fg{grey}\UnifiedCont}
+\newcommand\HighlightUnifiedLeftRightContentCont[1]{\fg{grey}{\spc\Bar}#1\UnifiedCont}
 \newcommand\HighlightUnifiedLeftRightContentLineSuppressed[1]{\fg{lightgrey}{\spc#1}\nl}
 \newcommand\HighlightUnifiedLeftRightContentLine[1]{\fg{grey}{\spc\Bar}#1\nl}
-\newcommand\HighlightUnifiedRightContentCont[1]{\fg{green}{+\Bar}\bg{lightgreen}{#1\UnifiedCont}}
+\newcommand\HighlightUnifiedRightContentCont[1]{\fg{green}{+\Bar}\bg{lightgreen}{#1}\UnifiedCont}
 \newcommand\HighlightUnifiedRightContentLineSuppressed[1]{\fg{lightgrey}{+#1}\nl}
 \newcommand\HighlightUnifiedRightContentLine[1]{\fg{green}{+\Bar}\bg{lightgreen}{#1}\nl}
 \newcommand\LineFollowedBySnippetEnd[2]{\suppressOneNl#1#2\nl}
@@ -100,10 +100,8 @@
 \newcommand\VisualizeUnifiedRightContentLine{\HighlightUnifiedRightContentLine}
 
 % Style
-\usepackage[left=1mm, top=1mm, paperwidth=1000mm, paperheight=2000mm]{geometry}
 \usepackage{courierten}
 \usepackage[T1]{fontenc}
-\pagestyle{empty}
 
 \begin{document}%
-\huge\tt%
+\tiny\tt%

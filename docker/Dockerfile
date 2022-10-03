@@ -3,8 +3,8 @@ FROM debian:bullseye
 # Install dependencies
 RUN apt-get update -y && apt-get install -y git imagemagick make python3 shellcheck texlive texlive-fonts-extra
 
-# Allow ImageMagick to use PS coder
-RUN sed -ri 's/^( *<)(policy domain="coder" rights="none" pattern="PS" \/)>$/\1!-- \2 -->/' /etc/ImageMagick-*/policy.xml
+# Allow ImageMagick to do whatever it pleases
+RUN rm /etc/ImageMagick-*/policy.xml
 
 # Create and use user
 RUN useradd -m -s /bin/bash user
