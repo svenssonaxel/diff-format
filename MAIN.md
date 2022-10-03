@@ -346,6 +346,20 @@ This design also makes sure to keep the following two properties of unified diff
 * The size of the new tree is bounded by the sum of the old tree and the patch file.
   If we allowed "fast-forwarding" by allowing named snippets to continue and include content between hunks, we could get exponential data growth or memory use in terms of patch size, which is undesirable.
 
+The six characters (`.=,^$:`) used to control named snippets are chosen with the aim to maximize ease of learning, mental parsing and machine parsing.
+* The period (`.`) and comma (`,`), which means "not included" and "not changed", are chosen to be minimally interfering, to allow the reader to focus attention elsewhere.
+* The set of characters used in snippet columns (`.=,^$`) are disjoint with the set of characters used in the status marker column (`-+ _#:`) so that the number of snippet columns is apparent on each line individually.
+* The set of characters used in content lines (`.=-+ _#`) are disjoint with the set of characters used in snippet lines (`,^$:`) to make it easy to differentiate and discard either when visually searching along one column, or machine parsing with one-character peek.
+* Even though snippet activation lines and snippet deactivation lines are already distinguishable based on the presence of a snippet name, they are again differentiated with caret (`^`) vs dollar sign (`$`) for added clarity and ability when parsing a single column.
+* The six characters (`.=,^$:`) are chosen to avoid quote characters (``` "'\` ```), matched pairs (`()[]{}`) and characters that otherwise have special meanings in hintful or other diff formats (` !#$*+-<>@\_|`) with one exception:
+  The dollar sign (`$`) is used both as a newline marker and for deactivating a snippet.
+  Hopefully this is a good trade-off, since these two uses are in very different places, and there is no other character with comparable tradition for meaning "the end".
+* Similarly to other characters with special meanings, they are all printable, non-alpha-numeric ASCII.
+* Except for the unobtrusive characters (`.,`), care has been taken to select characters with matching traditional meaning.
+  The equals sign (`=`) might not be spot on for content inclusion, but seems to be the character most easily remembered once learned.
+  The caret (`^`) and dollar sign (`$`) have a long tradition of meaning "start" and "end", and the caret (`^`) is also sometimes used to define and use named references such as footnotes.
+  The colon (`:`) also has some tradition for signifying a label to be referred to.
+
 ### Mixing hunk formats
 
 The unified and hintful hunk formats can be mixed freely within a hintful diff format file.
