@@ -5,31 +5,31 @@ diff --hintful a/luhn.js b/luhn.js
 . function check(str) {$
 .   let sum = 0;$
 .+  const \
-^#B
+^:B
 =+digits\
-^#
+$:
 .+ = \
-^#A
+^:A
 =+String(str).replace(/[^0-9]/g, "")\
-^#
+$:
 .+;$
 .+  if (\
-^#B
+^:B
 =+digits\
-^#
+$:
 .+ == "") {$
 .+    return false;$
 .+  }$
 .   for (const [index, value] of \
-^#A
+^:A
 =-String(str)\
 .-$
 .-    \
 =-.replace(/[^0-9]/g, "")\
-^#
-^#B
+$:
+^:B
 =+digits\
-^#
+$:
 . $
 .     .split("")$
 .     .reverse()$

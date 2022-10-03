@@ -122,7 +122,7 @@ def parseDiff(inputLines):
                 'right': line2m[2],
                 }
             continue
-        if(m(r'^\|?([.=]*[-+ _#]|[ ^]+#).*\n$', line)):
+        if(m(r'^\|?([.=]*[-+ _#]|[,^$]+:).*\n$', line)):
             die(f'Hunk content without header: {line}')
         linem = m(r'^(\|?)index ([0-9a-f]{7,})\.\.([0-9a-f]{7,})( +[0-7]{6})?\r*\n$', line)
         if(linem):
@@ -279,13 +279,18 @@ def parseHintfulHunk(header, inputLines, extraFields):
                         die(r'\r*\n sequence must not be split.')
                     snippet['content']+=content
             continue
-        linem = m(r'^(\|?)([ ^]{'+str(cc)+r'})#([^\r]*)\r*\n$', line)
+        linem = m(r'^(\|?)([,^]{'+str(cc)+r'}):([^\r]*)\r*\n$', line)
         if(linem):
             prefix = linem[1]
             snippetindicators = linem[2]
             name = linem[3]
-            if(m(r' {'+str(cc)+r'}', snippetindicators)):
-                die('Snippet line must have at least one caret.')
+            if(m(r',{'+str(cc)+r'}', snippetindicators)):
+                if(name==''):
+                    die('Snippet deactivation line must have at least one dollar sign.')
+                else:
+                    die('Snippet activation line must have at least one caret sign.')
+            if(name==''):
+                die('Snippet activation line must have a non-empty snippet name.')
             for snippet in state['snippets']:
                 if(snippetindicators[snippet['index']]=='^'):
                     if snippet['name']:
@@ -299,10 +304,34 @@ def parseHintfulHunk(header, inputLines, extraFields):
                     snippet['name']=name
                     snippet['content']=''
             yield {
-                'op': 'beginsnippets',
+                'op': 'activatesnippets',
                 'prefix': prefix,
                 'name': name,
                 'snippetcolumns': [ x=='^' for x in snippetindicators ],
+                **extraFields,
+            }
+            continue
+        linem = m(r'^(\|?)([,$]{'+str(cc)+r'}):\r*\n$', line)
+        if(linem):
+            prefix = linem[1]
+            snippetindicators = linem[2]
+            for snippet in state['snippets']:
+                if(snippetindicators[snippet['index']]=='$'):
+                    if snippet['name']:
+                        yield {
+                            'op': f'endsnippet',
+                            'prefix': prefix,
+                            'name': snippet['name'],
+                            'content': snippet['content'],
+                            **extraFields,
+                        }
+                    snippet['name']=''
+                    snippet['content']=''
+            yield {
+                'op': 'deactivatesnippets',
+                'prefix': prefix,
+                'name': name,
+                'snippetcolumns': [ x=='$' for x in snippetindicators ],
                 **extraFields,
             }
             continue
@@ -384,13 +413,19 @@ def formatDiff(inputObjs):
                         die('Content must end with newline in hintful mode without newline marker')
             else:
                 die('Unexpected hunk type')
-        elif(op=='beginsnippets'):
+        elif(op=='activatesnippets'):
             yield from [
                 prefix,
-                *[ '^' if x else ' ' for x in obj['snippetcolumns'] ],
-                '#',
+                *[ '^' if x else ',' for x in obj['snippetcolumns'] ],
+                ':',
                 obj['name'],
                 '\n',
+            ]
+        elif(op=='deactivatesnippets'):
+            yield from [
+                prefix,
+                *[ '$' if x else ',' for x in obj['snippetcolumns'] ],
+                ':\n',
             ]
         elif(op=='endsnippet'):
             pass
@@ -435,7 +470,7 @@ def removeSnippets(inputObjs):
                 **obj,
                 'snippetshavecontent': [],
             }
-        elif(op in ['beginsnippets', 'endsnippet']):
+        elif(op in ['activatesnippets', 'deactivatesnippets', 'endsnippet']):
             pass
         elif(op in ['beginfile', 'endfile', 'index', 'labels', 'leftfilemode', 'rightfilemode', 'similarity-index', 'rename', 'beginhunk', 'endhunk']):
             yield obj
@@ -478,7 +513,7 @@ def convertUnprefixedHunksToUnified(inputObjs):
             yield {**obj, 'fileformat': 'git', 'hunktype': 'unified', 'snippetcolumncount': 0}
         elif(op=='beginfile'):
             yield {**obj, 'fileformat': 'git'}
-        elif(op in ['beginsnippets', 'endsnippet']):
+        elif(op in ['activatesnippets', 'deactivatesnippets', 'endsnippet']):
             pass
         elif(op.endswith('content')):
             l=(op in ['leftcontent', 'bothcontent', 'bothlowprioritycontent'])
@@ -804,10 +839,12 @@ def latexFormatOperations(inputObjs):
                 newop += 'Snippet' + ['one', 'two'][snippetindex] + ('yes' if snippethascontent else 'no')
             newop += 'Content'
             yield {**obj, 'op': newop}
-        elif(op=='beginsnippets'):
+        elif(op in ['activatesnippets', 'deactivatesnippets']):
+            newop=op
             for snippetindex, snippetindicator in enumerate(obj['snippetcolumns']):
-                if(snippetindicator):
-                    yield {**obj, 'op': 'snippet' + ['one', 'two'][snippetindex]}
+                newop+=['one', 'two'][snippetindex]
+                newop+='yes' if snippetindicator else 'no'
+            yield {**obj, 'op': newop}
         else:
             yield obj
 def latexFormatContents(inputObjs, task):
@@ -858,8 +895,6 @@ def latexFormatContents(inputObjs, task):
             latexMacro += op + ('Line' if obj['content'].endswith('\n') else 'Cont')
         else:
             latexMacro += op.capitalize()
-        if(op.startswith('snippet')):
-            latexMacro += 'Begin' if obj['name'] else 'End'
         if(suppressed and (op.endswith('Content') or op=='beginhunk')):
             latexMacro += "Suppressed"
         yield {'op': 'begin', 'latexmacro': latexMacro}
@@ -890,7 +925,7 @@ def latexFormatContents(inputObjs, task):
                 yield contentm[1] or ''
             else:
                 yield content
-        elif(op.startswith('snippet')):
+        elif(m('^(activate|deactivate)snippets(one|two|yes|no)+', op)):
             yield obj['name']
         elif(op in ['labelleft']):
             yield f"--- {obj['left']}"
@@ -941,8 +976,8 @@ def latexFormatCombine(inputObjs):
     def combineHelper(expr1, expr2):
         macro1 = expr1[0]
         macro2 = expr2[0]
-        if(macro1.endswith('ContentLine') and m(r'^VisualizeHintful.*Snippet(one|two)End$', macro2)):
-            return ['LineFollowedBySnippetEnd',expr1,expr2]
+        if(macro1.endswith('ContentLine') and m(r'^VisualizeHintful.*Deactivatesnippets(one|two|yes|no)+$', macro2)):
+            return ['LineFollowedBySnippetDeactivation',expr1,expr2]
         return None
     prevObj=None
     for obj in inputObjs:

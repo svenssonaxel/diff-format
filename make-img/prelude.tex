@@ -54,10 +54,12 @@
 \newcommand\HighlightUnifiedRightContentCont[1]{\fg{green}{+\Bar}\bg{lightgreen}{#1\UnifiedCont}}
 \newcommand\HighlightUnifiedRightContentLineSuppressed[1]{\fg{lightgrey}{+#1}\nl}
 \newcommand\HighlightUnifiedRightContentLine[1]{\fg{green}{+\Bar}\bg{lightgreen}{#1}\nl}
-\newcommand\LineFollowedBySnippetEnd[2]{\suppressOneNl#1#2\nl}
+\newcommand\LineFollowedBySnippetDeactivation[2]{\suppressOneNl#1#2\nl}
 \newcommand\Prefix[1]{\fg{grey}{#1}}
 \newcommand\VisualizeHeader{\HighlightHeader}
+\newcommand\VisualizeHintfulActivatesnippetsoneyes[1]{\bg{black}{\bold{lightyellow}{:#1}}}
 \newcommand\VisualizeHintfulBeginhunk{\HighlightHintfulBeginhunk}
+\newcommand\VisualizeHintfulDeactivatesnippetsoneyes[1]{\bg{black}{\bold{lightyellow}{:}}}
 \newcommand\VisualizeHintfulIgnoreContentCont[1]{\bg{lightgrey}{#1}}
 \newcommand\VisualizeHintfulIgnoreContentLine[1]{\bg{lightgrey}{#1\Dollar}\nl}
 \newcommand\VisualizeHintfulIgnoreSnippetoneyesContentCont[1]{\bg{lightyellow}{#1}}
@@ -80,8 +82,6 @@
 \newcommand\VisualizeHintfulRightSnippetonenoContentLine{\VisualizeHintfulRightContentLine}
 \newcommand\VisualizeHintfulRightSnippetoneyesContentCont[1]{\twobg{lightgreen}{lightyellow}{#1}}
 \newcommand\VisualizeHintfulRightSnippetoneyesContentLine[1]{\twobg{lightgreen}{lightyellow}{#1\Dollar}\nl}
-\newcommand\VisualizeHintfulSnippetoneBegin[1]{\bg{black}{\bold{lightyellow}{{\#}#1}}}
-\newcommand\VisualizeHintfulSnippetoneEnd{\VisualizeHintfulSnippetoneBegin}
 \newcommand\VisualizeLabelleft{\HighlightLabelleft}
 \newcommand\VisualizeLabelright{\HighlightLabelright}
 \newcommand\VisualizeUnifiedBeginhunk{\HighlightUnifiedBeginhunk}

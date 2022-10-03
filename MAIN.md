@@ -41,7 +41,7 @@ Instead, this specification
 
 ### Hintful hunk format
 
-A hintful hunk consists of a one-line hunk header followed by any number of content lines and/or snippet lines.
+A hintful hunk consists of a one-line hunk header followed by any number of content lines, snippet activation lines and snippet deactivation lines.
 The hunk header has the following grammar:
 
 ```EBNF
@@ -82,16 +82,25 @@ A content line consists of
   * A dollar sign (`$`) meaning the rest of the content line (but not the newline marker) is included in the content.
 * Any number of CR characters and a newline character
 
-A snippet line consists of
+A snippet activation line consists of
 * A number of snippet markers equal to the number of snippet columns.
   Each snippet marker is either:
   * A caret (`^`) indicating the activation of a named snippet for that column.
-    The snippet remains active until another snippet line with a caret (`^`) in the same column, or until the end of the hunk.
-  * A space (` `) indicating no change for that snippet column.
-* A hash (`#`).
+    The snippet remains active until explicitly deactivated, another snippet is activated for that column, or the hunk ends.
+    At least one of the snippet markers must be a caret (`^`).
+  * A comma (`,`) indicating no change for that snippet column.
+* A colon (`:`).
 * The name of the snippet.
-  As a special case, if the name is the empty string, the indicated snippet columns are deactivated.
-* Any number of CR characters and a newline character
+* Any number of CR characters and a newline character.
+
+A snippet deactivation line consists of
+* A number of snippet markers equal to the number of snippet columns.
+  Each snippet marker is either:
+  * A dollar sign (`$`) indicating the deactivation of the named snippet for that column.
+    At least one of the snippet markers must be a dollar sign (`$`).
+  * A comma (`,`) indicating no change for that snippet column.
+* A colon (`:`).
+* Any number of CR characters and a newline character.
 
 A snippet name may be used several times, but the content must match.
 

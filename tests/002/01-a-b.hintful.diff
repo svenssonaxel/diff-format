@@ -47,20 +47,20 @@ index 458ee9d..1392cb1 100644
 --- a/delete-cr
 +++ b/delete-cr
 @@ -1 ^^14\ +1 @@
-^ #dash-to-CR
+^,:dash-to-CR
 =.-remove\
 ..--\
 =.#\
 =.-cr-content$
- ^#dash-to-CR
-^ #
+,^:dash-to-CR
+$,:
 .=+remove\
 .=#\
 ..+-\
 .=+cr-content\
 .=#$
 ..+$
- ^#
+,$:
 diff --hintful a/delete-cr-without-eofeol b/delete-cr-without-eofeol
 index e8b5ac0..4f3920c 100644
 --- a/delete-cr-without-eofeol
