@@ -7,7 +7,7 @@ index 863ee9f..2763cf7 100644
  const luhn = require('./luhn.js');
  
  const testCases = [
-@@ -13,5 (17) +12,7 @@ const testCases = [
+@@ -13,5 17\ +12,7 @@ const testCases = [
  ];$
  $
  for(const {str, result} of testCases){$
@@ -29,7 +29,7 @@ diff --hintful a/package.json b/package.json
 index e468e70..85980a5 100644
 --- a/package.json
 +++ b/package.json
-@@ -3,6 (12) +3,9 @@
+@@ -3,6 12\ +3,9 @@
    "version": "0.1.0",$
    "description": "Luhn test library",$
    "scripts": {$

@@ -35,8 +35,8 @@ Test directories and what they focus on, files and what they test:
     No end of file before hunk is done.
   - `09-a-b.invalid.hintful.diff`:
     Hunk line count must be correct.
-  - `10-a-b.invalid.hintful.diff`:
-    Snippets must end within hunk.
+  - `10-a-b.hintful.diff`:
+    Snippets end implicitly at end of hunk.
   - `11-a-b.invalid.hintful.diff`:
     Snippet content must be consistent between invocations.
   - `12-a-b.invalid.hintful.diff`:

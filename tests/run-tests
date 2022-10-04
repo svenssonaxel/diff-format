@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import contextlib, hashlib, os, re, sys, tempfile, threading, unittest
 
-_totalNumberOfAssertions = 29373
+_totalNumberOfAssertions = 29731
 
 def m(pattern, string):
     match = re.match(pattern, string, re.DOTALL)

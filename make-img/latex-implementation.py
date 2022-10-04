@@ -34,16 +34,24 @@ def latexFormatOperations(inputObjs):
         elif(op.endswith('content')):
             newop=""
             if(op in ['leftcontent', 'bothcontent', 'bothlowprioritycontent']):
-                newop += 'Left' + ("snippet" if obj['leftsnippetname'] else "")
+                newop += 'Left'
             if(op in ['rightcontent', 'bothcontent', 'bothlowprioritycontent']):
-                newop += 'Right' + ("snippet" if obj['rightsnippetname'] else "")
+                newop += 'Right'
             if(op=='ignorecontent'):
                 newop += 'Ignore'
             if(op=='bothlowprioritycontent'):
                 newop += 'Lowprio'
             if(not newop):
                 die('Bad content type in preLatexFormat')
+            for snippetindex, snippethascontent in enumerate(obj['snippetshavecontent']):
+                newop += 'Snippet' + ['one', 'two'][snippetindex] + ('yes' if snippethascontent else 'no')
             newop += 'Content'
+            yield {**obj, 'op': newop}
+        elif(op in ['activatesnippets', 'deactivatesnippets']):
+            newop=op
+            for snippetindex, snippetindicator in enumerate(obj['snippetcolumns']):
+                newop+=['one', 'two'][snippetindex]
+                newop+='yes' if snippetindicator else 'no'
             yield {**obj, 'op': newop}
         else:
             yield obj
@@ -73,7 +81,7 @@ def latexFormatContents(inputObjs, task):
                 suppressed=False
         if(op=='endhunk'):
             hunktype=''
-        if(op in ['endleftsnippet', 'endrightsnippet', 'endhunk', 'endfile']):
+        if(op in ['endsnippet', 'endhunk', 'endfile']):
             continue
         if obj['prefix']:
             yield {'op': 'begin', 'latexmacro': 'Prefix'}
@@ -95,8 +103,6 @@ def latexFormatContents(inputObjs, task):
             latexMacro += op + ('Line' if obj['content'].endswith('\n') else 'Cont')
         else:
             latexMacro += op.capitalize()
-        if(op.endswith('snippet')):
-            latexMacro += 'Begin' if obj['name'] else 'End'
         if(suppressed and (op.endswith('Content') or op=='beginhunk')):
             latexMacro += "Suppressed"
         yield {'op': 'begin', 'latexmacro': latexMacro}
@@ -108,9 +114,10 @@ def latexFormatContents(inputObjs, task):
             ]
             if(hunktype=='hintful'):
                 yield from [
-                    ' (',
-                    obj['hunklinecount'],
-                    ')',
+                    ' ',
+                    '^' * obj['snippetcolumncount'],
+                    str(obj['hunklinecount']),
+                    '\\' if obj['newlinemarkers'] else '',
                 ]
             yield from [
                 ' +',
@@ -126,7 +133,7 @@ def latexFormatContents(inputObjs, task):
                 yield contentm[1] or ''
             else:
                 yield content
-        elif(op in ['leftsnippet', 'rightsnippet']):
+        elif(m('^(activate|deactivate)snippets(one|two|yes|no)+', op)):
             yield obj['name']
         elif(op in ['labelleft']):
             yield f"--- {obj['left']}"
@@ -177,8 +184,8 @@ def latexFormatCombine(inputObjs):
     def combineHelper(expr1, expr2):
         macro1 = expr1[0]
         macro2 = expr2[0]
-        if(macro1.endswith('ContentLine') and m(r'^VisualizeHintful.*snippetEnd$', macro2)):
-            return ['LineFollowedBySnippetEnd',expr1,expr2]
+        if(macro1.endswith('ContentLine') and m(r'^VisualizeHintful.*Deactivatesnippets(one|two|yes|no)+$', macro2)):
+            return ['LineFollowedBySnippetDeactivation',expr1,expr2]
         return None
     prevObj=None
     for obj in inputObjs:

@@ -43,11 +43,34 @@ Instead, this specification
 
 ### Hintful hunk format
 
-A hintful hunk consists of a one-line hunk header followed by any number of content lines and/or snippet lines.
+A hintful hunk consists of a one-line hunk header followed by any number of content lines, snippet activation lines and snippet deactivation lines.
+The hunk header has the following grammar:
 
-The hunk header has the same format as in unified diff, except the total number of lines in the hunk (excluding the header) is inserted within parenthesis between the old and new line number information.
+```EBNF
+hintful_hunk_header  = header_start, extension, header_end;
+
+header_start         = "@@", ws, "+", line_count_info, ws;
+extension            = "^"*, line_count, "\"?, ws;
+header_end           = "-", line_count_info, ws "@@", comment, newline;
+
+line_count_info      = start_line ["," line_count];
+start_line           = integer;
+line_count           = integer;
+ws                   = " "+;
+```
+
+So the hintful hunk header looks just like a unified diff hunk header, except the `extension` in the middle which has the following functions:
+* The caret (`^`) indicates the number of snippet columns.
+* The integer indicates the number of lines in the hunk, excluding the header.
+* The backslash (`\`) indicates that content lines will have newline markers.
+* The presence of the extension causes legacy tools expecting unified diff format to exit with an error.
 
 A content line consists of
+* A number of snippet markers equal to the number of snippet columns.
+  Each snippet marker is either:
+  * An equals sign (`=`) indicating that the content is found in the snippet that is active for that column.
+    This is only legal for active snippet columns.
+  * A period (`.`) indicating that the content is not found in the snippet that is active for that column.
 * A status marker, which is one of the following (the three first already supported by unified diff):
   * A minus (`-`) meaning the content is found only in the old file.
   * A plus (`+`) meaning the content is found only in the new file.
@@ -55,21 +78,31 @@ A content line consists of
   * An underscore (`_`) having the same meaning as space, except signaling that the content is not patch context, and is less interesting for human consumption.
   * A hash (`#`) meaning the content is found in neither the old nor the new file.
 * Text content
-* A newline marker, which is one of the following:
+* A newline marker, if it is supposed to be present.
+  It is one of the following:
   * A backslash (`\`) signifying end of content.
   * A dollar sign (`$`) meaning the rest of the content line (but not the newline marker) is included in the content.
 * Any number of CR characters and a newline character
 
-A snippet line consists of
-* A status marker, which is one of the following:
-  * Right-angle (`>`) for using a named snippet for the new side of the comparison, instead of the new file.
-    Subsequent content lines is a comparison following the usual syntax, using the named snippet in place of the new file, until another right-angle (`>`) status marker.
-  * Left-angle (`<`), conversely, for using a named snippet for the old side of the comparison.
+A snippet activation line consists of
+* A number of snippet markers equal to the number of snippet columns.
+  Each snippet marker is either:
+  * A caret (`^`) indicating the activation of a named snippet for that column.
+    The snippet remains active until explicitly deactivated, another snippet is activated for that column, or the hunk ends.
+    At least one of the snippet markers must be a caret (`^`).
+  * A comma (`,`) indicating no change for that snippet column.
+* A colon (`:`).
 * The name of the snippet.
-  As a special case, if the name is the empty string, the new or old file is again used for the new or old side of the comparison, starting where it previously left off.
-* Any number of CR characters and a newline character
+* Any number of CR characters and a newline character.
 
-A hunk must not end within a snippet.
+A snippet deactivation line consists of
+* A number of snippet markers equal to the number of snippet columns.
+  Each snippet marker is either:
+  * A dollar sign (`$`) indicating the deactivation of the named snippet for that column.
+    At least one of the snippet markers must be a dollar sign (`$`).
+  * A comma (`,`) indicating no change for that snippet column.
+* A colon (`:`).
+* Any number of CR characters and a newline character.
 
 A snippet name may be used several times, but the content must match.
 
@@ -116,7 +149,7 @@ A compat diff format file can be used as-is by tools designed to consume unified
 
 ### Hintful hunk header
 
-The parenthesis and their placement are designed to cause tools that don't support hintful hunks to exit with an error if they come across an unprefixed, hintful hunk.
+The placement of the extension is designed to cause tools that don't support hintful hunks to exit with an error if they come across an unprefixed, hintful hunk.
 
 The hunk line count is included since it is necessary for parsing.
 The line counts for old and new files are redundant information, but they are left as they are since they
@@ -263,9 +296,14 @@ In order to simplify the format:
 * Producers must not, but consumers may, use the syntax `\ No newline at end of file` as used in unified hunks.
   It is merely a special case of the backslash newline marker, and therefore there is no need to keep it.
 
+If a hunk contains only line-based changes it may be easier on the eyes to exclude the newline markers.
+This can be done in two ways:
+* Use unified hunk format. This also precludes use of snippets.
+* Use hintful hunk format but exclude the backslash (`\`) from the hunk header. This still allows using snippets.
+
 ### Named snippets
 
-Status markers right-angle (`>`) and left-angle (`<`) are used for indicating named snippets.
+Snippet lines are used to activate and deactivate named snippets.
 Named snippets are used to express refactoring, including code movement and copying.
 These are very common operations, and having a diff format that can express them would be highly desirable.
 It would for example allow tools for diffing and merging to evolve independently, and then compose into a solution that can merge a lot more advanced code changes than the toolchains of today:
@@ -288,8 +326,8 @@ Similarly to the hash (`#`) status marker, named snippets is a way to talk about
 This enables several new use cases:
 * It provides a generic, simple way to express both simple and complicated refactoring.
   For example, a common expression that is refactored into a variable can be expressed with two named snippets, one for the variable name and one for the expression.
-  The variable definition added to the new file is expressed as a comparison with both snippets in sequence.
-  At every location where the common expression is replaced with a variable reference, first the expression in the old file is compared to the expression snippet, then the variable reference snippet is compared to the new file.
+  The variable definition is added to the new file with the variable name also found in the varable name snippet, and the expression in the expression snippet.
+  At every location where the common expression is replaced with a variable reference, first the expression is shown to be found in the old file and the expression snippet, then the variable reference snippet is shown to be present in the new file and the variable name snippet.
   <picture>
     <img alt="A visualization of a hintful diff of a simple refactoring of JavaScript code" src="img/simple-js-refactor-with-snippets.hintful.diff.visualized.png"/>
   </picture>
@@ -308,17 +346,27 @@ This enables several new use cases:
 This design also makes sure to keep the following two properties of unified diff format:
 * A symmetry that makes it trivial to produce a reverse patch from any given patch.
 * The size of the new tree is bounded by the sum of the old tree and the patch file.
-  If we allowed "fast-forwarding" by ending a hunk in the middle of a named snippet, we could get exponential data growth or memory use in terms of patch size, which is undesirable.
+  If we allowed "fast-forwarding" by allowing named snippets to continue and include content between hunks, we could get exponential data growth or memory use in terms of patch size, which is undesirable.
+
+The six characters (`.=,^$:`) used to control named snippets are chosen with the aim to maximize ease of learning, mental parsing and machine parsing.
+* The period (`.`) and comma (`,`), which means "not included" and "not changed", are chosen to be minimally interfering, to allow the reader to focus attention elsewhere.
+* The set of characters used in snippet columns (`.=,^$`) are disjoint with the set of characters used in the status marker column (`-+ _#:`) so that the number of snippet columns is apparent on each line individually.
+* The set of characters used in content lines (`.=-+ _#`) are disjoint with the set of characters used in snippet lines (`,^$:`) to make it easy to differentiate and discard either when visually searching along one column, or machine parsing with one-character peek.
+* Even though snippet activation lines and snippet deactivation lines are already distinguishable based on the presence of a snippet name, they are again differentiated with caret (`^`) vs dollar sign (`$`) for added clarity and ability when parsing a single column.
+* The six characters (`.=,^$:`) are chosen to avoid quote characters (``` "'\` ```), matched pairs (`()[]{}`) and characters that otherwise have special meanings in hintful or other diff formats (` !#$*+-<>@\_|`) with one exception:
+  The dollar sign (`$`) is used both as a newline marker and for deactivating a snippet.
+  Hopefully this is a good trade-off, since these two uses are in very different places, and there is no other character with comparable tradition for meaning "the end".
+* Similarly to other characters with special meanings, they are all printable, non-alpha-numeric ASCII.
+* Except for the unobtrusive characters (`.,`), care has been taken to select characters with matching traditional meaning.
+  The equals sign (`=`) might not be spot on for content inclusion, but seems to be the character most easily remembered once learned.
+  The caret (`^`) and dollar sign (`$`) have a long tradition of meaning "start" and "end", and the caret (`^`) is also sometimes used to define and use named references such as footnotes.
+  The colon (`:`) also has some tradition for signifying a label to be referred to.
 
 ### Mixing hunk formats
 
 The unified and hintful hunk formats can be mixed freely within a hintful diff format file.
-There are two reasons for this:
-* Backward compatibility.
-  A valid unified diff file is always a valid hintful diff file (except in a corner case explained below).
-* Readability.
-  The newline markers are useful for expressing non-line-based content, but they are unnecessarily distracting for line-based content.
-  Supporting both hunk formats provides flexibility.
+This is to achieve backward compatibility:
+A valid unified diff file is always a valid hintful diff file (except in a corner case explained below).
 
 Example:
 

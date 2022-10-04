@@ -2,7 +2,7 @@
 |index 6ae9b7c..ebb21c0 100644
 |--- a/luhn.test.js
 |+++ b/luhn.test.js
-|@@ -14,5 (17) +13,7 @@ const testCases = [
+|@@ -14,5 17\ +13,7 @@ const testCases = [
 | ];$
 | $
 | for(const {str, result} of testCases){$

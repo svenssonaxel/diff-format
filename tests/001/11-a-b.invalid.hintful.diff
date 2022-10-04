@@ -1,24 +1,24 @@
 diff --hintful a/file.py b/file.py
 --- a/file.py
 +++ b/file.py
-@@ -1,4 (20) +1,4 @@
->enclosing if
-+if True:$
-+    \
- for a in [1,$
-+    \
-           2,$
-+    \
-           3]:$
-+    \
-     print(a)$
->
-<enclosing if
- if False:$
-     for a in [1,$
-               2\
--,$
--              3\
- ]:$
-         print(a)$
-<
+@@ -1,4 ^20\ +1,4 @@
+^:enclosing if
+=#if True:$
+=#    \
+=-for a in [1,$
+=#    \
+=-          2,$
+=#    \
+=-          3]:$
+=#    \
+=-    print(a)$
+$:
+^:enclosing if
+=+if False:$
+=+    for a in [1,$
+=+              2\
+=#,$
+=#              3\
+=+]:$
+=+        print(a)$
+$:

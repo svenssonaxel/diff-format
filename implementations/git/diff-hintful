@@ -67,7 +67,7 @@ fi
     s/(^|\n)<esc32m>(<beginline>)?/\1+/g;
     s/^<beginline>/ /g;
     s/<esc1m>diff --git /diff --hintful /g;
-    s/^<esc36m>(@@ +-[0-9,]+)( +\+[0-9,]+ +@@.*)/\1 (<unknown>)\2/g;
+    s/^<esc36m>(@@ +-[0-9,]+)( +\+[0-9,]+ +@@.*)/\1 <unknown>\\\2/g;
     s/<esc1m>//g;
     s/<escm>(\\)?\n/\1\n/g;
     s/<endline>\\?($|\n)/\$\1/g;
