@@ -3,24 +3,26 @@
 ## Design goals
 
 1. As far as possible, retain the good properties of unified diff format.
-   That includes at least:
-   1. Text compatible: <br/>
-      If you convert both the source and patch file to another text format or encoding, the patch should still produce the correct result.
-   1. Binary compatible:<br/>
-      It should be possible to correctly express the difference between two binary files, even if the result isn't human readable.
+   Unified diff format files are:
    1. Usable for patching:<br/>
-      It should be possible to produce the new tree exactly given the diff file and the old tree.
+      Given a diff file in unified diff format and the old tree, it is possible to produce the new tree exactly.
    1. Usable for reverse patching:<br/>
-      It should be possible to produce the old tree exactly given the diff file and the new tree.
+      Given a diff file in unified diff format and the new tree, it is possible to produce the new old exactly.
    1. Reversible:<br/>
-      It should be possible to produce a diff from B to A, given a diff from A to B.
+      Given only a patch (diff) file from A to B, it is possible to produce a patch file from B to A.
    1. Content agnostic:<br/>
-      The diff format itself should work just fine no matter the syntax, or lack of syntax, of the content.
-   1. Easy to implement.
-   1. Be easy to mentally parse:<br/>
-      In unified diff format, most of the meaning of one line can often be discerned without much context.
-   1. No escaping hassle:<br/>
-      Not require any escaping except at most special newline handling
+      Unified diff format itself has no regard to the syntax, or lack of syntax, of the content.
+   1. Simple to implement producers and consumers for.
+   1. Easy to mentally parse:<br/>
+      Most of the meaning of one line can often be discerned without much context.
+   1. Free from escaping hassle.<br/>
+      Only newlines are handled specially.
+   1. Transparent to text encoding conversion:<br/>
+      If you convert the source and patch (diff) files to another text encoding, the patch still produces the correct result provided that all source files are text.
+      In many situations, it is also possible to thereafter convert the resulting files back to the original text encoding, and receive the same result as by applying the original patch with no conversion.
+   1. Binary compatible:<br/>
+      A patch can express differences between binary files and still be correctly applied, even though the patch file might not be readable as text.
+      In some sense, unified diff format is not exactly, or not only, a text format.
 1. Enable meaningfully expressed changes in any language, including for example
     1. Differences with finer granularity than one line
     1. Moving, copying and otherwise refactoring code
