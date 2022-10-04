@@ -6,7 +6,8 @@ all: \
  ../img/minified-js-refactor.hintful.diff.visualized.png \
  ../img/mixing-hunk-formats.hintful.diff.highlighted.png \
  ../img/simple-js-refactor-with-snippets.hintful.diff.visualized.png \
- ../img/simple-python-twostep.hintful.diff.visualized.png \
+ ../img/simple-python-stepwise.hintful.diff.highlighted.png \
+ ../img/simple-python-stepwise.hintful.diff.visualized.png \
  ../img/simple-python.hintful.diff.highlighted.png \
  ../img/simple-python.hintful.diff.visualized.png \
  ../img/simple-python.unified.diff.highlighted.png \

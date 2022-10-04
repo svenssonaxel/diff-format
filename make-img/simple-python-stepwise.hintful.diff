@@ -1,0 +1,38 @@
+diff --hintful a/file.py b/file.py
+--- a/file.py
++++ b/file.py
+@@ -1,4 ^^34\ +1,4 @@
+,^:Add enclosing if block
+.=#if True:$
+.=#    \
+.=-for a in [1,$
+.=#    \
+.=-          2,$
+.=#    \
+.=-          3]:$
+.=#    \
+.=-    print(a)$
+,$:
+^,:Add enclosing if block
+,^:Remove 3
+==#if True:$
+==#    for a in [1,$
+==#              2\
+=.#,$
+=.#              3\
+==#]:$
+==#        print(a)$
+$$:
+^,:Remove 3
+=.+if True:$
+=.+    for \
+=.#a\
+..+b\
+=.+ in [1,$
+=.+              2\
+=.+]:$
+=.+        print(\
+=.#a\
+..+b\
+=.+)$
+$,:
