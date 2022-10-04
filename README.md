@@ -83,7 +83,7 @@ However, unified diff format cannot support syntax-aware diff tools because it d
 Hintful diff format aims to become the diff format at the center of both traditional and such advanced tooling, by being
 1) forward and backward compatible with unified diff format.
 2) syntax-agnostic.
-3) usable for patching, revese patching and merging.
+3) usable for patching, reverse patching and merging.
 4) effortlessly inspectable by humans.
 5) suitable to express changes with a finer granularity than one line of code.
 6) expressive enough for common code change operations such as renaming, moving and refactoring.
