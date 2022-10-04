@@ -6,6 +6,8 @@
 %                                      CIE: | Lightness | Chroma | Hue     |
 \definecolor{red}          {HTML}{d83f25} % |        50 |     76 | red     |
 \definecolor{green}        {HTML}{018a00} % |        50 |     76 | green   |
+\definecolor{yellow}       {HTML}{b9b902} % |        73 |     73 | yellow  |
+\definecolor{blue}         {HTML}{845ee0} % |        50 |     76 | blue    |
 \definecolor{magenta}      {HTML}{be40bc} % |        50 |     76 | magenta |
 \definecolor{grey}         {HTML}{767676} % |        50 |      0 | grey    |
 \definecolor{lightred}     {HTML}{fec5b6} % |        84 |     24 | red     |
@@ -30,9 +32,20 @@
 
 % Content commands
 \newcommand\HighlightHeader[1]{{\textbf{#1}\nl}}
+\newcommand\HighlightHintfulActivatesnippetsonenotwoyes[1]{\bold{blue}{\fg{grey}{,}\textasciicircum\bg{black}{:\Bar#1}}\nl}
+\newcommand\HighlightHintfulActivatesnippetsoneyestwono[1]{\bold{yellow}{\textasciicircum\fg{grey}{,}\bg{black}{:\Bar#1}}\nl}
 \newcommand\HighlightHintfulBeginhunk[1]{\fg{magenta}{\textbf{#1}\nl}}
+\newcommand\HighlightHintfulDeactivatesnippetsonenotwoyes[1]{\bold{blue}{\fg{grey}{,}\$\bg{black}{:\Bar}}\nl}
+\newcommand\HighlightHintfulDeactivatesnippetsoneyestwono[1]{\bold{yellow}{\$\fg{grey}{,}\bg{black}{:\Bar}}\nl}
+\newcommand\HighlightHintfulDeactivatesnippetsoneyestwoyes[1]{\bold{yellow}{\$}\bold{blue}{\$}\fg{lightgrey}{\bg{black}{:\Bar}}\nl}
 \newcommand\HighlightHintfulIgnoreContentCont[1]{\fg{grey}{\#\Bar}\bg{lightgrey}{#1\Backslash}\nl}
 \newcommand\HighlightHintfulIgnoreContentLine[1]{\fg{grey}{\#\Bar}\bg{lightgrey}{#1\Dollar}\nl}
+\newcommand\HighlightHintfulIgnoreSnippetonenoSnippettwoyesContentCont[1]{\fg{grey}{.}\fg{blue}{=}\fg{grey}{\#\Bar}\bg{lightblue}{#1\Backslash}\nl}
+\newcommand\HighlightHintfulIgnoreSnippetonenoSnippettwoyesContentLine[1]{\fg{grey}{.}\fg{blue}{=}\fg{grey}{\#\Bar}\bg{lightblue}{#1\Dollar}\nl}
+\newcommand\HighlightHintfulIgnoreSnippetoneyesSnippettwonoContentCont[1]{\fg{yellow}{=}\fg{grey}{.\#\Bar}\bg{lightyellow}{#1\Backslash}\nl}
+\newcommand\HighlightHintfulIgnoreSnippetoneyesSnippettwonoContentLine[1]{\fg{yellow}{=}\fg{grey}{.\#\Bar}\bg{lightyellow}{#1\Dollar}\nl}
+\newcommand\HighlightHintfulIgnoreSnippetoneyesSnippettwoyesContentCont[1]{\fg{yellow}{=}\fg{blue}{=}\fg{grey}{\#\Bar}\twobg{lightyellow}{lightblue}{#1\Backslash}\nl}
+\newcommand\HighlightHintfulIgnoreSnippetoneyesSnippettwoyesContentLine[1]{\fg{yellow}{=}\fg{blue}{=}\fg{grey}{\#\Bar}\twobg{lightyellow}{lightblue}{#1\Dollar}\nl}
 \newcommand\HighlightHintfulLeftContentCont[1]{\fg{red}{{-}\Bar}\bg{lightred}{#1\Backslash}\nl}
 \newcommand\HighlightHintfulLeftContentLine[1]{\fg{red}{{-}\Bar}\bg{lightred}{#1\Dollar}\nl}
 \newcommand\HighlightHintfulLeftRightContentCont[1]{\fg{grey}{\spc\Bar}{#1}\Backslash\nl}
@@ -42,6 +55,8 @@
 \newcommand\HighlightHintfulLeftRightsnippetContentCont[1]{\twobg{lightred}{lightblue}{\fg{grey}{\spc\Bar}#1\Backslash}\nl}
 \newcommand\HighlightHintfulLeftRightsnippetContentLine[1]{\twobg{lightred}{lightblue}{\fg{grey}{\spc\Bar}#1\Dollar}\nl}
 \newcommand\HighlightHintfulLeftsnippetBegin[1]{\bg{black}{\bold{lightyellow}{<{#1}}}\nl}
+\newcommand\HighlightHintfulLeftsnippetContentCont[1]{\fg{yellow}{{-}\Bar}\bg{lightyellow}{#1\Backslash}\nl}
+\newcommand\HighlightHintfulLeftsnippetContentLine[1]{\fg{yellow}{{-}\Bar}\bg{lightyellow}{#1\Dollar}\nl}
 \newcommand\HighlightHintfulLeftsnippetEnd{\HighlightHintfulLeftsnippetBegin}
 \newcommand\HighlightHintfulLeftsnippetRightContentCont[1]{\twobg{lightgreen}{lightyellow}{\fg{grey}{\spc\Bar}#1\Backslash}\nl}
 \newcommand\HighlightHintfulLeftsnippetRightContentLine[1]{\twobg{lightgreen}{lightyellow}{\fg{grey}{\spc\Bar}#1\Dollar}\nl}
@@ -50,6 +65,8 @@
 \newcommand\HighlightHintfulRightContentCont[1]{\fg{green}{+\Bar}\bg{lightgreen}{#1\Backslash}\nl}
 \newcommand\HighlightHintfulRightContentLine[1]{\fg{green}{+\Bar}\bg{lightgreen}{#1\Dollar}\nl}
 \newcommand\HighlightHintfulRightsnippetBegin[1]{\bg{black}{\bold{lightblue}{>{#1}}}\nl}
+\newcommand\HighlightHintfulRightsnippetContentCont[1]{\fg{blue}{+\Bar}\bg{lightblue}{#1\Backslash}\nl}
+\newcommand\HighlightHintfulRightsnippetContentLine[1]{\fg{blue}{+\Bar}\bg{lightblue}{#1\Dollar}\nl}
 \newcommand\HighlightHintfulRightsnippetEnd{\HighlightHintfulRightsnippetBegin}
 \newcommand\HighlightLabelleft[1]{\bold{red}{#1}\nl}
 \newcommand\HighlightLabelright[1]{\bold{green}{#1}\nl}

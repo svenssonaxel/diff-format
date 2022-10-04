@@ -5,29 +5,29 @@ diff --hintful a/luhn.js b/luhn.js
  function check(str) {$
    let sum = 0;$
 +  const \
-<B
+<N
  digits\
 <
 + = \
-<A
+<E
  String(str).replace(/[^0-9]/g, "")\
 <
 +;$
 +  if (\
-<B
+<N
  digits\
 <
 + == "") {$
 +    return false;$
 +  }$
    for (const [index, value] of \
->A
+>E
  String(str)\
 -$
 -    \
  .replace(/[^0-9]/g, "")\
 >
-<B
+<N
  digits\
 <
  $
