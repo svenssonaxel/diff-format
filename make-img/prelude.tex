@@ -18,16 +18,16 @@
 
 % Util
 \newcommand\Backslash{\bold{magenta}{\textbackslash}}
-\newcommand\Bar{\kern-.2pt\rule[-\dp\strutbox]{.2pt}{\baselineskip}}
+\newcommand\Bar{\kern-.08pt\rule[-\dp\strutbox]{.16pt}{\baselineskip}}
 \newcommand\Dollar{\bold{magenta}{\$}}
 \newcommand\UnifiedCont{\nl\fg{grey}{\textbackslash\spc{No newline at end of file}}\nl}
-\newcommand\bg[2]{\strut{\settowidth{\tmpWd}{#2}{\rlap{\color{#1}{\rule[-\dp\strutbox]{\tmpWd}{\dimexpr\ht\strutbox+\dp\strutbox}}}}#2}}
+\newcommand\bg[2]{\strut{\settowidth{\tmpWd}{#2\kern.01pt}{\rlap{\color{#1}{\rule[-\dp\strutbox]{\tmpWd}{\dimexpr\ht\strutbox+\dp\strutbox}}}}#2}}
 \newcommand\bold[2]{\fg{#1}{\textbf{#2}}}
 \newcommand\fg[2]{{\color{#1}#2}}
 \newcommand\nl{\par}
 \newcommand\spc{{\strut\space\strut}}
 \newcommand\suppressOneNl{\renewcommand\nl{\renewcommand\nl{\par}}}
-\newcommand\twobg[3]{\strut{\settowidth{\tmpWd}{#3\kern1pt}{\rlap{\color{#1}{\rule[-\dp\strutbox]{\tmpWd}{\dimexpr\ht\strutbox+\dp\strutbox}}}}{\rlap{\color{#2}{\rule[-\dp\strutbox]{\tmpWd}{\dp\strutbox}}}}#3}}
+\newcommand\twobg[3]{\strut{\settowidth{\tmpWd}{#3\kern.01pt}{\rlap{\color{#1}{\rule[-\dp\strutbox]{\tmpWd}{\dimexpr\ht\strutbox+\dp\strutbox}}}}{\rlap{\color{#2}{\rule[-\dp\strutbox]{\tmpWd}{\dp\strutbox}}}}#3}}
 \newlength{\tmpWd}
 
 % Content commands
