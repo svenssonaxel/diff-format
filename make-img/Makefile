@@ -23,7 +23,7 @@ all: \
 # Check that input .dvi was only one page
 	[ -f $@ ]
 %.dvi: %.tex
-	trap "rm $*.aux $*.log" EXIT; latex -halt-on-error $<
+	trap "rm $*.aux $*.log" EXIT; latex -halt-on-error -interaction=nonstopmode -output-comment "" $<
 %.tex: %.content.tex prelude.tex
 	cat prelude.tex $< > $@
 	printf '\\end{document}' >> $@
