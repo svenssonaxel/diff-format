@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3.9
 import functools, os, sys
 sys.path.append("../implementations/python3")
 from implementation import m, main, nextOrDie, output
