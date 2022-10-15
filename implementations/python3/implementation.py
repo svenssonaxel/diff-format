@@ -366,7 +366,6 @@ def formatDiffHelper(inputObjs, task="raw"):
         nlm=None
         palette=[None, "black", "red", "yellow", "green", "blue", "magenta", "grey", "lightred", "lightyellow", "lightgreen", "lightblue", "lightmagenta", "lightgrey"]
         snippetcolors=["lightyellow", "lightblue"]
-        snippetlabelcolors=["yellow", "blue"] if task=="highlight" else snippetcolors
         bar='' if task=="raw" else {'op': 'bar'}
         def colorize(fg=None, bold=False, bg=None, bg2=None):
             if(task=="raw"): return ''
@@ -374,7 +373,7 @@ def formatDiffHelper(inputObjs, task="raw"):
                 return {
                     'op': 'colorize',
                     'fg': "lightgrey",
-                    'bold': bold,
+                    'bold': False,
                     'bg': None,
                     'bg2': None,
                 }
@@ -466,7 +465,10 @@ def formatDiffHelper(inputObjs, task="raw"):
                         yield from [
                             '\n',
                             colorize(fg="grey"),
-                            '\\ No newline at end of file\n',
+                            '\\',
+                            bar,
+                            colorize(fg="grey", bg=contentbgcolor),
+                            ' No newline at end of file\n',
                             ]
                 elif(hunktype=='hintful'):
                     underlinecolor=None
@@ -507,10 +509,9 @@ def formatDiffHelper(inputObjs, task="raw"):
                     for idx, x in enumerate(obj['snippetcolumns']):
                         if(x):
                             yield from [
-                                colorize(fg=snippetlabelcolors[idx], bg="black", bold=True),
+                                colorize(fg=snippetcolors[idx], bg="black", bold=True),
                                 ':',
                                 obj['name'],
-                                colorize(),
                             ]
                 else:
                     yield from prefix
@@ -518,20 +519,20 @@ def formatDiffHelper(inputObjs, task="raw"):
                     for idx, x in enumerate(obj['snippetcolumns']):
                         if(x):
                             yield from [
-                                colorize(fg=snippetlabelcolors[idx], bold=True),
+                                colorize(fg=snippetcolors[idx], bg="black", bold=True),
                                 '^',
                             ]
                             if(onecolor):
                                 onecolor="too many"
                             else:
-                                onecolor=snippetlabelcolors[idx]
+                                onecolor=snippetcolors[idx]
                         else:
                             yield from [
-                                colorize(fg="grey", bold=True),
+                                colorize(fg="grey", bg="black"),
                                 ',',
                             ]
                     yield from [
-                        colorize(fg="lightgrey" if onecolor in [None, "too many"] else onecolor, bg="black", bold=onecolor not in [None, "too many"]),
+                        colorize(fg="lightgrey" if onecolor in [None, "too many"] else onecolor, bg="black", bold=True),
                         ':',
                         bar,
                         obj['name'],
@@ -543,7 +544,7 @@ def formatDiffHelper(inputObjs, task="raw"):
                     for idx, x in enumerate(obj['snippetcolumns']):
                         if(x):
                             yield from [
-                                colorize(fg=snippetlabelcolors[idx], bg="black", bold=True),
+                                colorize(fg=snippetcolors[idx], bg="black", bold=True),
                                 ':',
                             ]
                     yield { 'op': 'endGlueContent' }
@@ -553,20 +554,20 @@ def formatDiffHelper(inputObjs, task="raw"):
                     for idx, x in enumerate(obj['snippetcolumns']):
                         if(x):
                             yield from [
-                                colorize(fg=snippetlabelcolors[idx], bold=True),
+                                colorize(fg=snippetcolors[idx], bg="black", bold=True),
                                 '$',
                             ]
                             if(onecolor):
                                 onecolor="too many"
                             else:
-                                onecolor=snippetlabelcolors[idx]
+                                onecolor=snippetcolors[idx]
                         else:
                             yield from [
-                                colorize(fg="grey", bold=True),
+                                colorize(fg="grey", bg="black"),
                                 ',',
                             ]
                     yield from [
-                        colorize(fg="lightgrey" if onecolor in [None, "too many"] else onecolor, bg="black", bold=onecolor not in [None, "too many"]),
+                        colorize(fg="lightgrey" if onecolor in [None, "too many"] else onecolor, bg="black", bold=True),
                         ':',
                         bar,
                         '\n',
