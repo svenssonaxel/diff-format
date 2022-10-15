@@ -354,111 +354,335 @@ def parseHintfulHunk(header, inputLines, extraFields):
         'rightcontent': state['rightcontent'],
     }
 
-def formatDiff(inputObjs):
-    hunktype=None
-    cc=None
-    nlm=None
-    for obj in inputObjs:
-        op=obj['op']
-        prefix=obj['prefix']
-        if(op=='beginhunk'):
-            hunktype=obj['hunktype']
-            cc=obj['snippetcolumncount']
-            nlm=obj['newlinemarkers']
-            yield from [
-                prefix,
-                '@@ -',
-                obj['leftstartlineraw'],
-                obj['leftlinecountraw'] or '',
-            ]
-            if(hunktype=='hintful'):
-                yield from [
-                    ' ',
-                    '^' * obj['snippetcolumncount'],
-                    str(obj['hunklinecount']),
-                    '\\' if obj['newlinemarkers'] else '',
-                ]
-            yield from [
-                ' +',
-                obj['rightstartlineraw'],
-                obj['rightlinecountraw'] or '',
-                ' @@',
-                obj['comment'],
-                '\n',
-            ]
-        elif(op.endswith('content')):
-            yield prefix
-            for snippetindex in range(cc):
-                yield '=' if obj['snippetshavecontent'][snippetindex] else '.'
-            yield {'leftcontent': '-', 'rightcontent': '+', 'bothcontent': ' ', 'bothlowprioritycontent': '_', 'ignorecontent': '#'}[op]
-            content = obj['content']
-            if(hunktype=='unified'):
-                yield obj['content']
-                if not obj['content'].endswith('\n'):
-                    yield '\n\\ No newline at end of file\n'
-            elif(hunktype=='hintful'):
-                if nlm:
-                    if content.endswith('\n'):
-                        contentm = m(r'^(.*[^\r])?(\r*\n)$', content)
-                        yield contentm[1] or ''
-                        yield '$'
-                        yield contentm[2]
-                    else:
-                        yield content
-                        yield '\\\n'
+def formatDiffHelper(inputObjs, task="raw"):
+    if(task not in ["raw", "highlight", "visualize"]):
+        die(f"Bad task {task} in formatDiffHelper")
+    def interpretAndColorize(inputObjs):
+        hunktype=None
+        seenPrefixedHunks=set()
+        suppressed=False
+        fileKey=None
+        cc=None
+        nlm=None
+        palette=[None, "black", "red", "yellow", "green", "blue", "magenta", "grey", "lightred", "lightyellow", "lightgreen", "lightblue", "lightmagenta", "lightgrey"]
+        snippetcolors=["lightyellow", "lightblue"]
+        snippetlabelcolors=["yellow", "blue"] if task=="highlight" else snippetcolors
+        bar='' if task=="raw" else {'op': 'bar'}
+        def colorize(fg=None, bold=False, bg=None, bg2=None):
+            if(task=="raw"): return ''
+            if(suppressed):
+                return {
+                    'op': 'colorize',
+                    'fg': "lightgrey",
+                    'bold': bold,
+                    'bg': None,
+                    'bg2': None,
+                }
+            if(fg not in palette): die(f'Illegal fg color {fg}')
+            if(bg not in palette): die(f'Illegal bg color {bg}')
+            if(bg2 not in palette): die(f'Illegal bg2 color {bg2}')
+            if(bold not in [True, False]): die(f'Illegal bold value {bold}')
+            return {
+                'op': 'colorize',
+                'fg': fg,
+                'bold': bold,
+                'bg': bg,
+                'bg2': bg2,
+            }
+        for obj in inputObjs:
+            op=obj['op']
+            prefix=[colorize(fg="grey"), obj['prefix'], colorize()] if obj['prefix'] else []
+            if(op=='beginhunk'):
+                hunkKey=(*fileKey,
+                         obj['leftstartline'],
+                         obj['leftlinecount'],
+                         obj['rightstartline'],
+                         obj['rightlinecount'],
+                         )
+                hunktype=obj['hunktype']
+                if(obj['prefix']):
+                    seenPrefixedHunks.add(hunkKey)
+                    suppressed=False
+                elif(hunkKey in seenPrefixedHunks):
+                    suppressed=True
                 else:
-                    if contents.endswith('\n'):
-                        yield content
+                    suppressed=False
+                cc=obj['snippetcolumncount']
+                nlm=obj['newlinemarkers']
+                yield from [
+                    *prefix,
+                    colorize(fg="magenta", bold=True),
+                    '@@ -',
+                    obj['leftstartlineraw'],
+                    obj['leftlinecountraw'] or '',
+                ]
+                if(hunktype=='hintful'):
+                    yield from [
+                        ' ',
+                        '^' * obj['snippetcolumncount'],
+                        str(obj['hunklinecount']),
+                        '\\' if obj['newlinemarkers'] else '',
+                    ]
+                yield from [
+                    ' +',
+                    obj['rightstartlineraw'],
+                    obj['rightlinecountraw'] or '',
+                    ' @@',
+                    obj['comment'],
+                    '\n',
+                ]
+            elif(op.endswith('content')):
+                yield from prefix
+                if not(task=="visualize" and hunktype=="hintful"):
+                    for snippetindex in range(cc):
+                        if obj['snippetshavecontent'][snippetindex]:
+                            yield from [
+                                colorize(fg=['yellow', 'blue'][snippetindex]),
+                                '=',
+                            ]
+                        else:
+                            yield from [
+                                colorize(fg='grey'),
+                                '.'
+                            ]
+                [                              char,    charfgcolor, barcolor, contentfgcolor, contentbgcolor]={
+                    'leftcontent':            ['-',     "red",       "red",    None,           "lightred"],
+                    'rightcontent':           ['+',     "green",     "green",  None,           "lightgreen"],
+                    'bothcontent':            [' ',     None,        "grey",   None,           None],
+                    'bothlowprioritycontent': ['_',     "grey",      "grey",   "grey",         None],
+                    'ignorecontent':          ['#',     "grey",      "grey",   None,           "lightgrey"],
+                }[op]
+                if not(task=="visualize" and hunktype=="hintful"):
+                    yield colorize(fg=charfgcolor)
+                    yield char
+                    if not suppressed:
+                        yield colorize(fg=barcolor)
+                        yield bar
+                content = obj['content']
+                if(hunktype=='unified'):
+                    yield colorize(fg=contentfgcolor, bg=contentbgcolor)
+                    yield obj['content']
+                    if not obj['content'].endswith('\n'):
+                        yield from [
+                            '\n',
+                            colorize(fg="grey"),
+                            '\\ No newline at end of file\n',
+                            ]
+                elif(hunktype=='hintful'):
+                    underlinecolor=None
+                    for idx, x in enumerate(obj['snippetshavecontent']):
+                        if(x):
+                            if(op=="ignorecontent" and contentbgcolor=="lightgrey"):
+                                contentbgcolor=snippetcolors[idx]
+                            elif(underlinecolor==None):
+                                underlinecolor=snippetcolors[idx]
+                            else:
+                                die('Cannot highlight or visualize content for more than two targets.')
+                    yield colorize(fg=contentfgcolor, bg=contentbgcolor, bg2=underlinecolor)
+                    if nlm:
+                        if content.endswith('\n'):
+                            contentm = m(r'^(.*[^\r])?(\r*\n)$', content)
+                            yield from [
+                                contentm[1] or '',
+                                colorize(fg="magenta", bold=True, bg=contentbgcolor, bg2=underlinecolor),
+                                '$',
+                                contentm[2],
+                                ]
+                        else:
+                            yield content
+                            if not(task=="visualize" and hunktype=="hintful"):
+                                yield from [
+                                    colorize(fg="magenta", bold=True, bg=contentbgcolor, bg2=underlinecolor),
+                                    '\\\n',
+                                ]
                     else:
-                        die('Content must end with newline in hintful mode without newline marker')
+                        if contents.endswith('\n'):
+                            yield content
+                        else:
+                            die('Content must end with newline in hintful mode without newline marker')
+                else:
+                    die('Unexpected hunk type')
+            elif(op=='activatesnippets'):
+                if(task=="visualize" and hunktype=="hintful"):
+                    for idx, x in enumerate(obj['snippetcolumns']):
+                        if(x):
+                            yield from [
+                                colorize(fg=snippetlabelcolors[idx], bg="black", bold=True),
+                                ':',
+                                obj['name'],
+                                colorize(),
+                            ]
+                else:
+                    yield from prefix
+                    onecolor=None
+                    for idx, x in enumerate(obj['snippetcolumns']):
+                        if(x):
+                            yield from [
+                                colorize(fg=snippetlabelcolors[idx], bold=True),
+                                '^',
+                            ]
+                            if(onecolor):
+                                onecolor="too many"
+                            else:
+                                onecolor=snippetlabelcolors[idx]
+                        else:
+                            yield from [
+                                colorize(fg="grey", bold=True),
+                                ',',
+                            ]
+                    yield from [
+                        colorize(fg="lightgrey" if onecolor in [None, "too many"] else onecolor, bg="black", bold=onecolor not in [None, "too many"]),
+                        ':',
+                        bar,
+                        obj['name'],
+                        '\n',
+                    ]
+            elif(op=='deactivatesnippets'):
+                if(task=="visualize" and hunktype=="hintful"):
+                    yield { 'op': 'beginGlueContent' }
+                    for idx, x in enumerate(obj['snippetcolumns']):
+                        if(x):
+                            yield from [
+                                colorize(fg=snippetlabelcolors[idx], bg="black", bold=True),
+                                ':',
+                            ]
+                    yield { 'op': 'endGlueContent' }
+                else:
+                    yield from prefix
+                    onecolor=None
+                    for idx, x in enumerate(obj['snippetcolumns']):
+                        if(x):
+                            yield from [
+                                colorize(fg=snippetlabelcolors[idx], bold=True),
+                                '$',
+                            ]
+                            if(onecolor):
+                                onecolor="too many"
+                            else:
+                                onecolor=snippetlabelcolors[idx]
+                        else:
+                            yield from [
+                                colorize(fg="grey", bold=True),
+                                ',',
+                            ]
+                    yield from [
+                        colorize(fg="lightgrey" if onecolor in [None, "too many"] else onecolor, bg="black", bold=onecolor not in [None, "too many"]),
+                        ':',
+                        bar,
+                        '\n',
+                    ]
+            elif(op=='endsnippet'):
+                pass
+            elif(op=='endhunk'):
+                hunktype=None
+                cc=None
+                nlm=None
+            elif(op=='endfile'):
+                pass
+            elif(op in ['labels']):
+                yield from [
+                    *prefix,
+                    colorize(fg="red", bold=True),
+                    f"--- {obj['left']}\n",
+                    *prefix,
+                    colorize(fg="green", bold=True),
+                    f"+++ {obj['right']}\n",
+                ]
+            elif(op=='beginfile'):
+                suppressed=False
+                fileKey=(obj['leftfile'], obj['rightfile'])
+                yield from [
+                    *prefix,
+                    colorize(bold=True),
+                    f"diff --{obj['fileformat']} {obj['leftfile']} {obj['rightfile']}\n",
+                ]
+            elif(op=='index'):
+                yield from [
+                    *prefix,
+                    colorize(bold=True),
+                    f"index {obj['left']}..{obj['right']}",
+                    obj['mode'] if obj['mode'] else '',
+                    '\n',
+                ]
+            elif(op.endswith('filemode')):
+                yield from [
+                    *prefix,
+                    colorize(fg={'leftfilemode': 'red', 'rightfilemode': 'green'}[op], bold=True),
+                    {'leftfilemode': 'deleted', 'rightfilemode': 'new'}[op],
+                    ' file mode ',
+                    obj['mode'],
+                    '\n',
+                ]
+            elif(op=='similarity-index'):
+                yield from [
+                    *prefix,
+                    f"similarity index {obj['similarity-index']}\n",
+                ]
+            elif(op=='rename'):
+                yield from [
+                    *prefix,
+                    colorize(bold=True),
+                    f"rename from {obj['left']}\n",
+                    *prefix,
+                    colorize(bold=True),
+                    f"rename to {obj['right']}\n",
+                ]
             else:
-                die('Unexpected hunk type')
-        elif(op=='activatesnippets'):
-            yield from [
-                prefix,
-                *[ '^' if x else ',' for x in obj['snippetcolumns'] ],
-                ':',
-                obj['name'],
-                '\n',
-            ]
-        elif(op=='deactivatesnippets'):
-            yield from [
-                prefix,
-                *[ '$' if x else ',' for x in obj['snippetcolumns'] ],
-                ':\n',
-            ]
-        elif(op=='endsnippet'):
-            pass
-        elif(op=='endhunk'):
-            hunktype=None
-            cc=None
-            nlm=None
-        elif(op=='endfile'):
-            pass
-        elif(op in ['labels']):
-            yield f"{prefix}--- {obj['left']}\n{prefix}+++ {obj['right']}\n"
-        elif(op=='beginfile'):
-            yield f"{prefix}diff --{obj['fileformat']} {obj['leftfile']} {obj['rightfile']}\n"
-        elif(op=='index'):
-            yield f"{prefix}index {obj['left']}..{obj['right']}"
-            if obj['mode']:
-                yield obj['mode']
-            yield '\n'
-        elif(op.endswith('filemode')):
-            yield from [
-                prefix,
-                {'leftfilemode': 'deleted', 'rightfilemode': 'new'}[op],
-                ' file mode ',
-                obj['mode'],
-                '\n',
-            ]
-        elif(op=='similarity-index'):
-            yield f"{prefix}similarity index {obj['similarity-index']}\n"
-        elif(op=='rename'):
-            yield f"{prefix}rename from {obj['left']}\n"
-            yield f"{prefix}rename to {obj['right']}\n"
-        else:
-            die(f'formatDiff cannot process operation {op}')
+                die(f'formatDiffHelper cannot process operation {op}')
+    def separateNewlines(inputObjs):
+        for obj in inputObjs:
+            if(type(obj)==str and '\n' in obj):
+                while('\n' in obj):
+                    i=obj.index('\n')
+                    yield obj[:i]
+                    yield '\n'
+                    obj=obj[i+1:]
+            yield obj
+    def processNewlineDeferment(inputObjs):
+        gluecontent=False
+        deferred=""
+        prevObj=None
+        for obj in inputObjs:
+            if(obj==''):
+                continue
+            elif(type(obj)==dict and obj['op']=='beginGlueContent'):
+                if(type(prevObj)==dict and prevObj['op']=='endGlueContent'):
+                    prevObj=None
+                elif(prevObj=='\n'):
+                    deferred+=prevObj
+                    prevObj=None
+                    gluecontent=True
+                else:
+                    gluecontent=True
+            else:
+                if(type(prevObj)==dict and prevObj['op']=='endGlueContent'):
+                    yield deferred
+                    deferred=""
+                elif(prevObj):
+                    yield prevObj
+                prevObj=obj
+        if(type(prevObj)==dict and prevObj['op']=='endGlueContent'):
+            yield deferred
+            deferred=""
+        elif(prevObj):
+            yield prevObj
+        if(deferred):
+            die('processNewlineDeferment ended before inserting deferred newlines')
+    def processColorizationEndAtNewline(inputObjs):
+        for obj in inputObjs:
+            if(obj=='\n' and task!="raw"):
+                yield {
+                    'op': 'colorize',
+                    'fg': None,
+                    'bold': False,
+                    'bg': None,
+                    'bg2': None,
+                }
+            yield obj
+    yield from processColorizationEndAtNewline(processNewlineDeferment(separateNewlines(interpretAndColorize(inputObjs))))
+
+def formatDiff(inputObjs):
+    yield from formatDiffHelper(inputObjs, "raw")
 
 def removeSnippets(inputObjs):
     for obj in inputObjs:
