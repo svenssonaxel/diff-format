@@ -16,105 +16,17 @@
 \definecolor{lightblue}    {HTML}{dccbf7} % |        84 |     24 | blue    |
 \definecolor{lightgrey}    {HTML}{d2d2d2} % |        84 |      0 | grey    |
 
-% Util
-\newcommand\Backslash{\bold{magenta}{\textbackslash}}
+% Length used for \bg and \twobg below
+\newlength{\tmpWd}
+
+% Commands used in latex-implementation.py
 \newcommand\Bar{\kern-.08pt\rule[-\dp\strutbox]{.16pt}{\baselineskip}}
-\newcommand\Dollar{\bold{magenta}{\$}}
-\newcommand\UnifiedCont{\nl\fg{grey}{\textbackslash\spc{No newline at end of file}}\nl}
 \newcommand\bg[2]{\strut{\settowidth{\tmpWd}{#2\kern.01pt}{\rlap{\color{#1}{\rule[-\dp\strutbox]{\tmpWd}{\dimexpr\ht\strutbox+\dp\strutbox}}}}#2}}
-\newcommand\bold[2]{\fg{#1}{\textbf{#2}}}
+\newcommand\bold[1]{{\textbf{#1}}}
 \newcommand\fg[2]{{\color{#1}#2}}
 \newcommand\nl{\par}
 \newcommand\spc{{\strut\space\strut}}
-\newcommand\suppressOneNl{\renewcommand\nl{\renewcommand\nl{\par}}}
 \newcommand\twobg[3]{\strut{\settowidth{\tmpWd}{#3\kern.01pt}{\rlap{\color{#1}{\rule[-\dp\strutbox]{\tmpWd}{\dimexpr\ht\strutbox+\dp\strutbox}}}}{\rlap{\color{#2}{\rule[-\dp\strutbox]{\tmpWd}{\dp\strutbox}}}}#3}}
-\newlength{\tmpWd}
-
-% Content commands
-\newcommand\HighlightHeader[1]{{\textbf{#1}\nl}}
-\newcommand\HighlightHintfulActivatesnippetsonenotwoyes[1]{\bold{blue}{\fg{grey}{,}\textasciicircum\bg{black}{:\Bar#1}}\nl}
-\newcommand\HighlightHintfulActivatesnippetsoneyestwono[1]{\bold{yellow}{\textasciicircum\fg{grey}{,}\bg{black}{:\Bar#1}}\nl}
-\newcommand\HighlightHintfulBeginhunk[1]{\fg{magenta}{\textbf{#1}\nl}}
-\newcommand\HighlightHintfulDeactivatesnippetsonenotwoyes[1]{\bold{blue}{\fg{grey}{,}\$\bg{black}{:\Bar}}\nl}
-\newcommand\HighlightHintfulDeactivatesnippetsoneyestwono[1]{\bold{yellow}{\$\fg{grey}{,}\bg{black}{:\Bar}}\nl}
-\newcommand\HighlightHintfulDeactivatesnippetsoneyestwoyes[1]{\bold{yellow}{\$}\bold{blue}{\$}\fg{lightgrey}{\bg{black}{:\Bar}}\nl}
-\newcommand\HighlightHintfulIgnoreContentCont[1]{\fg{grey}{\#\Bar}\bg{lightgrey}{#1\Backslash}\nl}
-\newcommand\HighlightHintfulIgnoreContentLine[1]{\fg{grey}{\#\Bar}\bg{lightgrey}{#1\Dollar}\nl}
-\newcommand\HighlightHintfulIgnoreSnippetonenoSnippettwoyesContentCont[1]{\fg{grey}{.}\fg{blue}{=}\fg{grey}{\#\Bar}\bg{lightblue}{#1\Backslash}\nl}
-\newcommand\HighlightHintfulIgnoreSnippetonenoSnippettwoyesContentLine[1]{\fg{grey}{.}\fg{blue}{=}\fg{grey}{\#\Bar}\bg{lightblue}{#1\Dollar}\nl}
-\newcommand\HighlightHintfulIgnoreSnippetoneyesSnippettwonoContentCont[1]{\fg{yellow}{=}\fg{grey}{.\#\Bar}\bg{lightyellow}{#1\Backslash}\nl}
-\newcommand\HighlightHintfulIgnoreSnippetoneyesSnippettwonoContentLine[1]{\fg{yellow}{=}\fg{grey}{.\#\Bar}\bg{lightyellow}{#1\Dollar}\nl}
-\newcommand\HighlightHintfulIgnoreSnippetoneyesSnippettwoyesContentCont[1]{\fg{yellow}{=}\fg{blue}{=}\fg{grey}{\#\Bar}\twobg{lightyellow}{lightblue}{#1\Backslash}\nl}
-\newcommand\HighlightHintfulIgnoreSnippetoneyesSnippettwoyesContentLine[1]{\fg{yellow}{=}\fg{blue}{=}\fg{grey}{\#\Bar}\twobg{lightyellow}{lightblue}{#1\Dollar}\nl}
-\newcommand\HighlightHintfulLeftContentCont[1]{\fg{red}{{-}\Bar}\bg{lightred}{#1\Backslash}\nl}
-\newcommand\HighlightHintfulLeftContentLine[1]{\fg{red}{{-}\Bar}\bg{lightred}{#1\Dollar}\nl}
-\newcommand\HighlightHintfulLeftRightContentCont[1]{\fg{grey}{\spc\Bar}{#1}\Backslash\nl}
-\newcommand\HighlightHintfulLeftRightContentLine[1]{\fg{grey}{\spc\Bar}{#1}\Dollar\nl}
-\newcommand\HighlightHintfulLeftRightLowprioContentCont[1]{\fg{grey}{{\_}\Bar#1\Backslash}\nl}
-\newcommand\HighlightHintfulLeftRightLowprioContentLine[1]{\fg{grey}{{\_}\Bar#1\Dollar}\nl}
-\newcommand\HighlightHintfulLeftRightsnippetContentCont[1]{\twobg{lightred}{lightblue}{\fg{grey}{\spc\Bar}#1\Backslash}\nl}
-\newcommand\HighlightHintfulLeftRightsnippetContentLine[1]{\twobg{lightred}{lightblue}{\fg{grey}{\spc\Bar}#1\Dollar}\nl}
-\newcommand\HighlightHintfulLeftsnippetBegin[1]{\bg{black}{\bold{lightyellow}{<{#1}}}\nl}
-\newcommand\HighlightHintfulLeftsnippetContentCont[1]{\fg{yellow}{{-}\Bar}\bg{lightyellow}{#1\Backslash}\nl}
-\newcommand\HighlightHintfulLeftsnippetContentLine[1]{\fg{yellow}{{-}\Bar}\bg{lightyellow}{#1\Dollar}\nl}
-\newcommand\HighlightHintfulLeftsnippetEnd{\HighlightHintfulLeftsnippetBegin}
-\newcommand\HighlightHintfulLeftsnippetRightContentCont[1]{\twobg{lightgreen}{lightyellow}{\fg{grey}{\spc\Bar}#1\Backslash}\nl}
-\newcommand\HighlightHintfulLeftsnippetRightContentLine[1]{\twobg{lightgreen}{lightyellow}{\fg{grey}{\spc\Bar}#1\Dollar}\nl}
-\newcommand\HighlightHintfulLeftsnippetRightsnippetContentCont[1]{\twobg{lightyellow}{lightblue}{\fg{grey}{\spc\Bar}#1\Backslash}\nl}
-\newcommand\HighlightHintfulLeftsnippetRightsnippetContentLine[1]{\twobg{lightyellow}{lightblue}{\fg{grey}{\spc\Bar}#1\Dollar}\nl}
-\newcommand\HighlightHintfulRightContentCont[1]{\fg{green}{+\Bar}\bg{lightgreen}{#1\Backslash}\nl}
-\newcommand\HighlightHintfulRightContentLine[1]{\fg{green}{+\Bar}\bg{lightgreen}{#1\Dollar}\nl}
-\newcommand\HighlightHintfulRightsnippetBegin[1]{\bg{black}{\bold{lightblue}{>{#1}}}\nl}
-\newcommand\HighlightHintfulRightsnippetContentCont[1]{\fg{blue}{+\Bar}\bg{lightblue}{#1\Backslash}\nl}
-\newcommand\HighlightHintfulRightsnippetContentLine[1]{\fg{blue}{+\Bar}\bg{lightblue}{#1\Dollar}\nl}
-\newcommand\HighlightHintfulRightsnippetEnd{\HighlightHintfulRightsnippetBegin}
-\newcommand\HighlightLabelleft[1]{\bold{red}{#1}\nl}
-\newcommand\HighlightLabelright[1]{\bold{green}{#1}\nl}
-\newcommand\HighlightUnifiedBeginhunkSuppressed[1]{\fg{lightgrey}{\textbf{#1}\nl}}
-\newcommand\HighlightUnifiedBeginhunk{\HighlightHintfulBeginhunk}
-\newcommand\HighlightUnifiedLeftContentCont[1]{\fg{red}{{-}\Bar}\bg{lightred}{#1}\UnifiedCont}
-\newcommand\HighlightUnifiedLeftContentLineSuppressed[1]{\fg{lightgrey}{{-}#1}\nl}
-\newcommand\HighlightUnifiedLeftContentLine[1]{\fg{red}{{-}\Bar}\bg{lightred}{#1}\nl}
-\newcommand\HighlightUnifiedLeftRightContentCont[1]{\fg{grey}{\spc\Bar}#1\UnifiedCont}
-\newcommand\HighlightUnifiedLeftRightContentLineSuppressed[1]{\fg{lightgrey}{\spc#1}\nl}
-\newcommand\HighlightUnifiedLeftRightContentLine[1]{\fg{grey}{\spc\Bar}#1\nl}
-\newcommand\HighlightUnifiedRightContentCont[1]{\fg{green}{+\Bar}\bg{lightgreen}{#1}\UnifiedCont}
-\newcommand\HighlightUnifiedRightContentLineSuppressed[1]{\fg{lightgrey}{+#1}\nl}
-\newcommand\HighlightUnifiedRightContentLine[1]{\fg{green}{+\Bar}\bg{lightgreen}{#1}\nl}
-\newcommand\LineFollowedBySnippetEnd[2]{\suppressOneNl#1#2\nl}
-\newcommand\Prefix[1]{\fg{grey}{#1}}
-\newcommand\VisualizeHeader{\HighlightHeader}
-\newcommand\VisualizeHintfulBeginhunk{\HighlightHintfulBeginhunk}
-\newcommand\VisualizeHintfulIgnoreContentCont[1]{\bg{lightgrey}{#1}}
-\newcommand\VisualizeHintfulIgnoreContentLine[1]{\bg{lightgrey}{#1\Dollar}\nl}
-\newcommand\VisualizeHintfulLeftContentCont[1]{\bg{lightred}{#1}}
-\newcommand\VisualizeHintfulLeftContentLine[1]{\bg{lightred}{#1\Dollar}\nl}
-\newcommand\VisualizeHintfulLeftRightContentCont[1]{#1}
-\newcommand\VisualizeHintfulLeftRightContentLine[1]{#1\Dollar\nl}
-\newcommand\VisualizeHintfulLeftRightLowprioContentCont[1]{\fg{grey}{#1}}
-\newcommand\VisualizeHintfulLeftRightLowprioContentLine[1]{\fg{grey}{#1\Dollar}\nl}
-\newcommand\VisualizeHintfulLeftRightsnippetContentCont[1]{\twobg{lightred}{lightblue}{#1}}
-\newcommand\VisualizeHintfulLeftRightsnippetContentLine[1]{\twobg{lightred}{lightblue}{#1\Dollar}\nl}
-\newcommand\VisualizeHintfulLeftsnippetBegin[1]{\bg{black}{\bold{lightyellow}{<#1}}}
-\newcommand\VisualizeHintfulLeftsnippetContentCont[1]{\bg{lightyellow}{#1}}
-\newcommand\VisualizeHintfulLeftsnippetContentLine[1]{\bg{lightyellow}{#1\Dollar}\nl}
-\newcommand\VisualizeHintfulLeftsnippetEnd{\VisualizeHintfulLeftsnippetBegin}
-\newcommand\VisualizeHintfulLeftsnippetRightContentCont[1]{\twobg{lightgreen}{lightyellow}{#1}}
-\newcommand\VisualizeHintfulLeftsnippetRightContentLine[1]{\twobg{lightgreen}{lightyellow}{#1\Dollar}\nl}
-\newcommand\VisualizeHintfulLeftsnippetRightsnippetContentCont[1]{\twobg{lightyellow}{lightblue}{#1}}
-\newcommand\VisualizeHintfulLeftsnippetRightsnippetContentLine[1]{\twobg{lightyellow}{lightblue}{#1\Dollar}\nl}
-\newcommand\VisualizeHintfulRightContentCont[1]{\bg{lightgreen}{#1}}
-\newcommand\VisualizeHintfulRightContentLine[1]{\bg{lightgreen}{#1\Dollar}\nl}
-\newcommand\VisualizeHintfulRightsnippetBegin[1]{\bg{black}{\bold{lightblue}{>#1}}}
-\newcommand\VisualizeHintfulRightsnippetContentCont[1]{\bg{lightblue}{#1}}
-\newcommand\VisualizeHintfulRightsnippetContentLine[1]{\bg{lightblue}{#1\Dollar}\nl}
-\newcommand\VisualizeHintfulRightsnippetEnd{\VisualizeHintfulRightsnippetBegin}
-\newcommand\VisualizeLabelleft{\HighlightLabelleft}
-\newcommand\VisualizeLabelright{\HighlightLabelright}
-\newcommand\VisualizeUnifiedBeginhunk{\HighlightUnifiedBeginhunk}
-\newcommand\VisualizeUnifiedLeftContentLine{\HighlightUnifiedLeftContentLine}
-\newcommand\VisualizeUnifiedLeftRightContentLine{\HighlightUnifiedLeftRightContentLine}
-\newcommand\VisualizeUnifiedRightContentLine{\HighlightUnifiedRightContentLine}
 
 % Style
 \usepackage{courierten}

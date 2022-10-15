@@ -301,89 +301,269 @@ def parseHintfulHunk(header, inputLines, extraFields):
         'rightcontent': state['rightcontent'],
     }
 
-def formatDiff(inputObjs):
-    hunktype=None
-    for obj in inputObjs:
-        op=obj['op']
-        prefix=obj['prefix']
-        if(op=='beginhunk'):
-            hunktype=obj['hunktype']
-            yield from [
-                prefix,
-                '@@ -',
-                obj['leftstartlineraw'],
-                obj['leftlinecountraw'] or '',
-            ]
-            if(hunktype=='hintful'):
-                yield from [
-                    ' (',
-                    obj['hunklinecount'],
-                    ')',
-                ]
-            yield from [
-                ' +',
-                obj['rightstartlineraw'],
-                obj['rightlinecountraw'] or '',
-                ' @@',
-                obj['comment'],
-                '\n',
-            ]
-        elif(op.endswith('content')):
-            yield prefix
-            yield {'leftcontent': '-', 'rightcontent': '+', 'bothcontent': ' ', 'bothlowprioritycontent': '_', 'ignorecontent': '#'}[op]
-            content = obj['content']
-            if(hunktype=='unified'):
-                yield obj['content']
-                if not obj['content'].endswith('\n'):
-                    yield '\n\\ No newline at end of file\n'
-            elif(hunktype=='hintful'):
-                if content.endswith('\n'):
-                    contentm = m(r'^(.*[^\r])?(\r*\n)$', content)
-                    yield contentm[1] or ''
-                    yield '$'
-                    yield contentm[2]
+def formatDiffHelper(inputObjs, task="raw"):
+    if(task not in ["raw", "highlight", "visualize"]):
+        die(f"Bad task {task} in formatDiffHelper")
+    def interpretAndColorize(inputObjs):
+        hunktype=None
+        seenPrefixedHunks=set()
+        suppressed=False
+        fileKey=None
+        palette=[None, "black", "red", "yellow", "green", "blue", "magenta", "grey", "lightred", "lightyellow", "lightgreen", "lightblue", "lightmagenta", "lightgrey"]
+        snippetcolors={'leftsnippet': 'yellow', 'rightsnippet': 'blue'}
+        snippetlightcolors={'leftsnippet': 'lightyellow', 'rightsnippet': 'lightblue'}
+        bar='' if task=="raw" else {'op': 'bar'}
+        greybar='' if task=="raw" else  {'op': 'greybar'}
+        leftsnippetname=''
+        rightsnippetname=''
+        def colorize(fg=None, bold=False, bg=None, bg2=None):
+            if(task=="raw"): return ''
+            if(suppressed):
+                return {
+                    'op': 'colorize',
+                    'fg': "lightgrey",
+                    'bold': bold,
+                    'bg': None,
+                    'bg2': None,
+                }
+            if(fg not in palette): die(f'Illegal fg color {fg}')
+            if(bg not in palette): die(f'Illegal bg color {bg}')
+            if(bg2 not in palette): die(f'Illegal bg2 color {bg2}')
+            if(bold not in [True, False]): die(f'Illegal bold value {bold}')
+            return {
+                'op': 'colorize',
+                'fg': fg,
+                'bold': bold,
+                'bg': bg,
+                'bg2': bg2,
+            }
+        for obj in inputObjs:
+            op=obj['op']
+            prefix=[colorize(fg="grey"), obj['prefix'], colorize()] if obj['prefix'] else []
+            if(op=='beginhunk'):
+                hunkKey=(*fileKey,
+                         obj['leftstartline'],
+                         obj['leftlinecount'],
+                         obj['rightstartline'],
+                         obj['rightlinecount'],
+                         )
+                hunktype=obj['hunktype']
+                if(obj['prefix']):
+                    seenPrefixedHunks.add(hunkKey)
+                    suppressed=False
+                elif(hunkKey in seenPrefixedHunks):
+                    suppressed=True
                 else:
-                    yield content
-                    yield '\\\n'
+                    suppressed=False
+                yield from [
+                    *prefix,
+                    colorize(fg="magenta", bold=True),
+                    '@@ -',
+                    obj['leftstartlineraw'],
+                    obj['leftlinecountraw'] or '',
+                ]
+                if(hunktype=='hintful'):
+                    yield from [
+                        ' (',
+                        str(obj['hunklinecount']),
+                        ')',
+                    ]
+                yield from [
+                    ' +',
+                    obj['rightstartlineraw'],
+                    obj['rightlinecountraw'] or '',
+                    ' @@',
+                    obj['comment'],
+                    '\n',
+                ]
+            elif(op.endswith('content')):
+                yield from prefix
+                colorfrom=op
+                if(op in ['leftcontent', 'bothcontent']):
+                    colorfrom+="left"
+                    colorfrom+="snippet" if leftsnippetname else "file"
+                if(op in ['rightcontent', 'bothcontent']):
+                    colorfrom+="right"
+                    colorfrom+="snippet" if rightsnippetname else "file"
+                [                                          char,    charfgcolor, barcolor, contentfgcolor, contentbgcolor, contentbg2color]={
+                    'leftcontentleftfile':                ['-',     "red",       "red",    None,           "lightred",     None],
+                    'leftcontentleftsnippet':             ['-',     "yellow",    "yellow", None,           "lightyellow",  None],
+                    'rightcontentrightfile':              ['+',     "green",     "green",  None,           "lightgreen",   None],
+                    'rightcontentrightsnippet':           ['+',     "blue",      "blue",   None,           "lightblue",    None],
+                    'bothcontentleftfilerightfile':       [' ',     None,        "grey",   None,           None,           None],
+                    'bothcontentleftfilerightsnippet':    [' ',     None,        "grey",   None,           "lightred",     "lightblue"],
+                    'bothcontentleftsnippetrightfile':    [' ',     None,        "grey",   None,           "lightgreen",   "lightyellow"],
+                    'bothcontentleftsnippetrightsnippet': [' ',     None,        "grey",   None,           "lightyellow",  "lightblue"],
+                    'bothlowprioritycontent':             ['_',     "grey",      "grey",   "grey",         None,           None],
+                    'ignorecontent':                      ['#',     "grey",      "grey",   None,           "lightgrey",    None],
+                }[colorfrom]
+                if not(task=="visualize" and hunktype=="hintful"):
+                    yield colorize(fg=charfgcolor, bg=contentbgcolor, bg2=contentbg2color) if op=="bothcontent" else colorize(fg=charfgcolor)
+                    yield char
+                    if not suppressed:
+                        yield from [greybar] if op=="bothcontent" else [colorize(fg=barcolor), bar]
+                content = obj['content']
+                yield colorize(fg=contentfgcolor, bg=contentbgcolor, bg2=contentbg2color)
+                if(hunktype=='unified'):
+                    yield obj['content']
+                    if not obj['content'].endswith('\n'):
+                        yield from [
+                            '\n',
+                            colorize(fg="grey"),
+                            '\\ No newline at end of file\n',
+                            ]
+                elif(hunktype=='hintful'):
+                    if content.endswith('\n'):
+                        contentm = m(r'^(.*[^\r])?(\r*\n)$', content)
+                        yield from [
+                            contentm[1] or '',
+                            colorize(fg="magenta", bold=True, bg=contentbgcolor, bg2=contentbg2color),
+                            '$',
+                            contentm[2],
+                            ]
+                    else:
+                        yield content
+                        if not(task=="visualize" and hunktype=="hintful"):
+                            yield from [
+                                colorize(fg="magenta", bold=True, bg=contentbgcolor, bg2=contentbg2color),
+                                '\\\n',
+                            ]
+                else:
+                    die('Unexpected hunk type')
+            elif(op in ['leftsnippet', 'rightsnippet']):
+                if(op=="leftsnippet"):
+                    leftsnippetname=obj['name']
+                else:
+                    rightsnippetname=obj['name']
+                char={'leftsnippet': '<', 'rightsnippet': '>'}[op]
+                if(task=="visualize" and hunktype=="hintful"):
+                    glue=(task=="visualize" and hunktype=="hintful" and not obj['name'])
+                    if glue:
+                        yield { 'op': 'beginGlueContent' }
+                    yield from [
+                        colorize(fg=snippetlightcolors[op], bg="black", bold=True),
+                        char,
+                        obj['name'],
+                        colorize(),
+                    ]
+                    if glue:
+                        yield { 'op': 'endGlueContent' }
+                else:
+                    yield from [
+                        *prefix,
+                        colorize(fg=snippetlightcolors[op], bg="black", bold=True),
+                        char,
+                        obj['name'],
+                        '\n',
+                    ]
+            elif(op in ['endleftsnippet', 'endrightsnippet']):
+                pass
+            elif(op=='endhunk'):
+                hunktype=None
+            elif(op=='endfile'):
+                pass
+            elif(op in ['labels']):
+                yield from [
+                    *prefix,
+                    colorize(fg="red", bold=True),
+                    f"--- {obj['left']}\n",
+                    *prefix,
+                    colorize(fg="green", bold=True),
+                    f"+++ {obj['right']}\n",
+                ]
+            elif(op=='beginfile'):
+                suppressed=False
+                fileKey=(obj['leftfile'], obj['rightfile'])
+                yield from [
+                    *prefix,
+                    colorize(bold=True),
+                    f"diff --{obj['fileformat']} {obj['leftfile']} {obj['rightfile']}\n",
+                ]
+            elif(op=='index'):
+                yield from [
+                    *prefix,
+                    colorize(bold=True),
+                    f"index {obj['left']}..{obj['right']}",
+                    obj['mode'] if obj['mode'] else '',
+                    '\n',
+                ]
+            elif(op.endswith('filemode')):
+                yield from [
+                    *prefix,
+                    colorize(fg={'leftfilemode': 'red', 'rightfilemode': 'green'}[op], bold=True),
+                    {'leftfilemode': 'deleted', 'rightfilemode': 'new'}[op],
+                    ' file mode ',
+                    obj['mode'],
+                    '\n',
+                ]
+            elif(op=='similarity-index'):
+                yield from [
+                    *prefix,
+                    f"similarity index {obj['similarity-index']}\n",
+                ]
+            elif(op=='rename'):
+                yield from [
+                    *prefix,
+                    colorize(bold=True),
+                    f"rename from {obj['left']}\n",
+                    *prefix,
+                    colorize(bold=True),
+                    f"rename to {obj['right']}\n",
+                ]
             else:
-                die('Unexpected hunk type')
-        elif(op in ['leftsnippet', 'rightsnippet']):
-            yield from [
-                prefix,
-                {'leftsnippet': '<', 'rightsnippet': '>'}[op],
-                obj['name'],
-                '\n',
-            ]
-        elif(op in ['endleftsnippet', 'endrightsnippet']):
-            pass
-        elif(op=='endhunk'):
-            hunktype=None
-        elif(op=='endfile'):
-            pass
-        elif(op in ['labels']):
-            yield f"{prefix}--- {obj['left']}\n{prefix}+++ {obj['right']}\n"
-        elif(op=='beginfile'):
-            yield f"{prefix}diff --{obj['fileformat']} {obj['leftfile']} {obj['rightfile']}\n"
-        elif(op=='index'):
-            yield f"{prefix}index {obj['left']}..{obj['right']}"
-            if obj['mode']:
-                yield obj['mode']
-            yield '\n'
-        elif(op.endswith('filemode')):
-            yield from [
-                prefix,
-                {'leftfilemode': 'deleted', 'rightfilemode': 'new'}[op],
-                ' file mode ',
-                obj['mode'],
-                '\n',
-            ]
-        elif(op=='similarity-index'):
-            yield f"{prefix}similarity index {obj['similarity-index']}\n"
-        elif(op=='rename'):
-            yield f"{prefix}rename from {obj['left']}\n"
-            yield f"{prefix}rename to {obj['right']}\n"
-        else:
-            die(f'formatDiff cannot process operation {op}')
+                die(f'formatDiffHelper cannot process operation {op}')
+    def separateNewlines(inputObjs):
+        for obj in inputObjs:
+            if(type(obj)==str and '\n' in obj):
+                while('\n' in obj):
+                    i=obj.index('\n')
+                    yield obj[:i]
+                    yield '\n'
+                    obj=obj[i+1:]
+            yield obj
+    def processNewlineDeferment(inputObjs):
+        gluecontent=False
+        deferred=""
+        prevObj=None
+        for obj in inputObjs:
+            if(obj==''):
+                continue
+            elif(type(obj)==dict and obj['op']=='beginGlueContent'):
+                if(prevObj=='\n'):
+                    deferred+=prevObj
+                    prevObj=None
+                    gluecontent=True
+                else:
+                    gluecontent=True
+            elif(type(obj)==dict and obj['op']=='endGlueContent'):
+                    yield deferred
+                    deferred=""
+            else:
+                if(prevObj):
+                    yield prevObj
+                prevObj=obj
+        if(type(prevObj)==dict and prevObj['op']=='endGlueContent'):
+            yield deferred
+            deferred=""
+        elif(prevObj):
+            yield prevObj
+        if(deferred):
+            die('processNewlineDeferment ended before inserting deferred newlines')
+    def processColorizationEndAtNewline(inputObjs):
+        for obj in inputObjs:
+            if(obj=='\n' and task!="raw"):
+                yield {
+                    'op': 'colorize',
+                    'fg': None,
+                    'bold': False,
+                    'bg': None,
+                    'bg2': None,
+                }
+            yield obj
+    yield from processColorizationEndAtNewline(processNewlineDeferment(separateNewlines(interpretAndColorize(inputObjs))))
+
+def formatDiff(inputObjs):
+    yield from formatDiffHelper(inputObjs, "raw")
 
 def removeSnippets(inputObjs):
     leftsnippetname=''
