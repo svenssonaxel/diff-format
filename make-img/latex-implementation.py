@@ -64,8 +64,6 @@ def formatLatex(inputObjs):
             currentColorization=obj
         elif(type(obj)==dict and obj['op']=='bar'):
             yield r"{\Bar}"
-        elif(type(obj)==dict and obj['op']=='greybar'):
-            yield r"\fg{grey}{\Bar}"
         else:
             die('Weird object in formatLatex')
     yield contextEnd

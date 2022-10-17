@@ -310,10 +310,8 @@ def formatDiffHelper(inputObjs, task="raw"):
         suppressed=False
         fileKey=None
         palette=[None, "black", "red", "yellow", "green", "blue", "magenta", "grey", "lightred", "lightyellow", "lightgreen", "lightblue", "lightmagenta", "lightgrey"]
-        snippetcolors={'leftsnippet': 'yellow', 'rightsnippet': 'blue'}
-        snippetlightcolors={'leftsnippet': 'lightyellow', 'rightsnippet': 'lightblue'}
+        snippetcolors={'leftsnippet': 'lightyellow', 'rightsnippet': 'lightblue'}
         bar='' if task=="raw" else {'op': 'bar'}
-        greybar='' if task=="raw" else  {'op': 'greybar'}
         leftsnippetname=''
         rightsnippetname=''
         def colorize(fg=None, bold=False, bg=None, bg2=None):
@@ -322,7 +320,7 @@ def formatDiffHelper(inputObjs, task="raw"):
                 return {
                     'op': 'colorize',
                     'fg': "lightgrey",
-                    'bold': bold,
+                    'bold': False,
                     'bg': None,
                     'bg2': None,
                 }
@@ -398,10 +396,11 @@ def formatDiffHelper(inputObjs, task="raw"):
                     'ignorecontent':                      ['#',     "grey",      "grey",   None,           "lightgrey",    None],
                 }[colorfrom]
                 if not(task=="visualize" and hunktype=="hintful"):
-                    yield colorize(fg=charfgcolor, bg=contentbgcolor, bg2=contentbg2color) if op=="bothcontent" else colorize(fg=charfgcolor)
+                    yield colorize(fg=charfgcolor)
                     yield char
                     if not suppressed:
-                        yield from [greybar] if op=="bothcontent" else [colorize(fg=barcolor), bar]
+                        yield colorize(fg=barcolor)
+                        yield bar
                 content = obj['content']
                 yield colorize(fg=contentfgcolor, bg=contentbgcolor, bg2=contentbg2color)
                 if(hunktype=='unified'):
@@ -410,7 +409,10 @@ def formatDiffHelper(inputObjs, task="raw"):
                         yield from [
                             '\n',
                             colorize(fg="grey"),
-                            '\\ No newline at end of file\n',
+                            '\\',
+                            bar,
+                            colorize(fg="grey", bg=contentbgcolor),
+                            ' No newline at end of file\n',
                             ]
                 elif(hunktype=='hintful'):
                     if content.endswith('\n'):
@@ -441,17 +443,16 @@ def formatDiffHelper(inputObjs, task="raw"):
                     if glue:
                         yield { 'op': 'beginGlueContent' }
                     yield from [
-                        colorize(fg=snippetlightcolors[op], bg="black", bold=True),
+                        colorize(fg=snippetcolors[op], bg="black", bold=True),
                         char,
                         obj['name'],
-                        colorize(),
                     ]
                     if glue:
                         yield { 'op': 'endGlueContent' }
                 else:
                     yield from [
                         *prefix,
-                        colorize(fg=snippetlightcolors[op], bg="black", bold=True),
+                        colorize(fg=snippetcolors[op], bg="black", bold=True),
                         char,
                         obj['name'],
                         '\n',
@@ -529,17 +530,19 @@ def formatDiffHelper(inputObjs, task="raw"):
             if(obj==''):
                 continue
             elif(type(obj)==dict and obj['op']=='beginGlueContent'):
-                if(prevObj=='\n'):
+                if(type(prevObj)==dict and prevObj['op']=='endGlueContent'):
+                    prevObj=None
+                elif(prevObj=='\n'):
                     deferred+=prevObj
                     prevObj=None
                     gluecontent=True
                 else:
                     gluecontent=True
-            elif(type(obj)==dict and obj['op']=='endGlueContent'):
+            else:
+                if(type(prevObj)==dict and prevObj['op']=='endGlueContent'):
                     yield deferred
                     deferred=""
-            else:
-                if(prevObj):
+                elif(prevObj):
                     yield prevObj
                 prevObj=obj
         if(type(prevObj)==dict and prevObj['op']=='endGlueContent'):
