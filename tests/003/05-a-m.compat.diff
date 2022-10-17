@@ -7,8 +7,8 @@
 | $
 | for(const {str, result} of testCases){$
 |+    test(JSON.stringify({str, result}), ()=>{$
-|     \
 |+    \
+|     \
 |-assert\
 |+expect\
 | (\
