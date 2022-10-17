@@ -107,8 +107,8 @@ A simple example follows:
 </picture>
 
 There are two named snippets here.
-Snippet `A` connects code added at one place with code removed from another place, effectively expressing a code movement.
-Snippet `B` connects three equal additions, thereby stating explicitly that they are the same thing.
+Snippet `E` connects code added at one place with code removed from another place, effectively expressing a code movement.
+Snippet `N` connects three equal additions, thereby stating explicitly that they are the same thing.
 
 See the [specification](MAIN.md#specification) for details.
 
