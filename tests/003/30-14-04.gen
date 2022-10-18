@@ -1,0 +1,4 @@
+#!/usr/bin/env -S sed -rf
+
+# Move lines 1-18 to after line 45
+1,18{H;d}; 45{p;z;x;s/^\n//}

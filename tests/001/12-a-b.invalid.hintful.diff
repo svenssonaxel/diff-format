@@ -14,11 +14,11 @@ diff --hintful a/file.py b/file.py
 =-    print(a)$
 $:
 ^:enclosing if
-=-if True:$
-=-    for a in [1,$
-=-              2\
+=+if True:$
+=+    for a in [1,$
+=+              2\
 =#,$
 =#              3\
-=-]:$
-=-        print(a)$
+=+]:$
+=+        print(a)$
 $:

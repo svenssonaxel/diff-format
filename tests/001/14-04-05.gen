@@ -1,0 +1,6 @@
+#!/usr/bin/env -S sed -rf
+
+# Move all lines starting with a single plus to the end of the file
+/^\+[^+]/H
+${g;s/^\n//p}
+/^\+[^+]/d

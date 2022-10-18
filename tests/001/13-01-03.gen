@@ -1,0 +1,6 @@
+#!/usr/bin/env -S sed -rf
+
+6d
+7s/^ /-/
+7a\
++    for a in [1,$

@@ -1,0 +1,4 @@
+#!/usr/bin/env -S sed -rf
+
+4s/20/19/
+24d

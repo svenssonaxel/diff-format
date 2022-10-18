@@ -1,0 +1,12 @@
+#!/usr/bin/env -S sed -rf
+
+# Cut lines 45-49
+45,49!d
+
+49s/\^\^14/3/
+
+# Add three lines after line 49
+49a\
+ remove-cr-content\\\
+-\\\
+ $

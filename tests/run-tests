@@ -1,7 +1,7 @@
 #!/usr/bin/env python3.9
 import contextlib, hashlib, os, re, sys, tempfile, threading, unittest
 
-_totalNumberOfAssertions = 29731
+_totalNumberOfAssertions = 29781
 
 def m(pattern, string):
     match = re.match(pattern, string, re.DOTALL)
@@ -103,7 +103,7 @@ def inDir(*path):
 @contextlib.contextmanager
 def filesInTmpDir(files):
     with tempfile.TemporaryDirectory() as tempdir:
-        ec = os.waitstatus_to_exitcode(os_system(f'cp -pr -- {" ".join(files)} {tempdir}'))
+        ec = os.waitstatus_to_exitcode(os_system(f'cp -prH -- {" ".join(files)} {tempdir}'))
         if not ec==0:
             die('Failed to copy files into temporary directory')
         with inDir(tempdir):
@@ -206,6 +206,10 @@ class TestAll(unittest.TestCase):
         contentfiles = []
         files=os_listdir()
         files.sort()
+        def filewithnumber(no):
+            candidates=[x for x in files if x.startswith(no)]
+            assert(len(candidates)==1)
+            return candidates[0]
         with threads():
             for filename in files:
                 match = m('^[0-9]+-([a-z])-([a-z])\.(.*)', filename)
@@ -235,6 +239,13 @@ class TestAll(unittest.TestCase):
                         with self.nestTest(f'Test content files {otherfile} and {filename}'):
                             addThread(self.doTestContentFiles, otherfile, filename)
                     contentfiles.append(filename)
+                    continue
+                match = m('^[0-9]+-([0-9]+)-([0-9]+)\.gen', filename)
+                if(match):
+                    with self.nestTest(f'Test file {filename}'):
+                        sourcefile=filewithnumber(match[1])
+                        targetfile=filewithnumber(match[2])
+                        addThread(self.doTestGen, filename, sourcefile, targetfile)
                     continue
                 die(f"Don't know what to do with file {filename}")
 
@@ -349,6 +360,14 @@ class TestAll(unittest.TestCase):
                     with filesInTmpDir([v1, v2]):
                         self.sh(f'{diff} {v1} {v2} > generated_diff-{v1}-{v2}.{mode}.diff', 1)
                         self.doTestDiff(f'generated_diff-{v1}-{v2}.{mode}.diff', v1, v2, mode)
+
+    def doTestGen(self, genfile, sourcefile, targetfile):
+        with filesInTmpDir([genfile, sourcefile, targetfile]):
+            generatedfile=f'generated-{targetfile}'
+            with self.nestTest(f'Create {generatedfile}'):
+                self.sh(f'./{genfile} < {sourcefile} > {generatedfile}')
+                with self.nestTest(f'Compare {generatedfile} to {targetfile}'):
+                    self.assertSame(generatedfile, targetfile)
 
     # Utility
 

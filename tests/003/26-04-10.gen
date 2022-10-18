@@ -1,0 +1,4 @@
+#!/usr/bin/env -S sed -rf
+
+# Move lines 5-9 to after line 27
+5,9{H;d}; 27{p;z;x;s/^\n//}

@@ -1,0 +1,5 @@
+#!/usr/bin/env -S sed -rf
+
+32s/19/20/
+36a\
+|=#/* This text shouldn't be here */\\
