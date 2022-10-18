@@ -41,9 +41,11 @@ Instead, this specification
 * is expressed in terms of extending unified diff format.
 * uses the `git` flavour of unified diff format as an example whenever talking about incompatible aspects.
 
+Tags on the form `[HDFxx]` are used to map the specification to error codes in [ERROR-CODES.md](ERROR-CODES.md).
+
 ### Hintful hunk format
 
-A hintful hunk consists of a one-line hunk header followed by any number of content lines and/or snippet lines.
+A hintful hunk consists of a one-line hunk header `[HDF11]` followed by any number of content lines and/or snippet lines `[HDF12]`.
 
 The hunk header has the same format as in unified diff, except the total number of lines in the hunk (excluding the header) is inserted within parenthesis between the old and new line number information.
 
@@ -72,13 +74,12 @@ A snippet line consists of
   As a special case, if the name is the empty string, the new or old file is again used for the new or old side of the comparison, starting where it previously left off.
 * Any number of CR characters and a newline character
 
-A hunk must not end within a snippet.
-
 Additionally, the following restrictions apply:
-* A snippet name may be used several times, but the content must be the exact same every time the same snippet name is used, throughout a hintful diff file.
-* Any occurrence of a `\r*\n` sequence in effective content (named snippet content or old or new file) must be represented by a `\r*\n` sequence in the hintful diff format file.
-* The syntax `\ No newline at end of file` as used in unified hunks is forbidden.
-* The constraints on where hunks begin and end are the same for hintful and unified hunks.
+* A hunk must not end within a snippet `[HDF13]`.
+* A snippet name may be used several times, but the content must be the exact same every time the same snippet name is used, throughout a hintful diff file `[HDF15]`.
+* Any occurrence of a `\r*\n` sequence in effective content (named snippet content or old or new file) must be represented by a `\r*\n` sequence in the hintful diff format file `[HDF16]`.
+* The syntax `\ No newline at end of file` as used in unified hunks is forbidden `[HDF17]`.
+* The constraints on where hunks begin and end are the same for hintful and unified hunks `[HDF18]`.
 
 ### Hintful diff format
 
@@ -87,28 +88,30 @@ The exact meaning of "unified diff format" is unfortunately implementation depen
 
 The extensions are as follows:
 
-#### Hunk formats
+#### File comparisons
 
-A hunk may be in either hintful or unified format.
-The two hunk formats may be mixed arbitrarily within a hintful diff format file.
+A "file comparison" is a section of a diff format file with a header `[HDF21]` indicating what files are compared, potentially followed by a number of extended header information `[HDF22]`, and a series of hunks.
+If the file header begins with `diff --git`, the following series of hunks must all be in unified hunk format `[HDF23]`.
+If instead the file header begins with `diff --hintful`, the following series of hunks can be in an arbitrary mix of unified and hintful hunk format.
+Within a file comparison, the hunks must be nonoverlapping and ordered by line number, both for the old and the new side `[HDF24]`.
 
 #### Prefixed file comparisons
 
-A "file comparison" is a section of a diff format file with a header indicating what files are compared, potentially followed by extended header information and hunks.
-In hintful diff format, file comparisons can be prefixed or unprefixed.
-A prefixed file comparison has a bar character (`|`) before every line.
-A prefixed file comparison must have a corresponding unprefixed version of the file comparison occurring later in the hintful diff format file.
+File comparisons can be prefixed or unprefixed.
+A line is prefixed by a bar character (`|`) if and only if it belongs to a prefixed file comparison `[HDF31]`.
+A prefixed file comparison must have a corresponding unprefixed version of the file comparison occurring later in the hintful diff format file `[HDF32]`.
+All other duplication of file comparisons is forbidden `[HDF33]`.
 Any or all extended headers and hunks may be missing from the prefixed version of the file comparison.
-Any extended headers present in the prefixed version must also be present in the unprefixed version and match exactly.
-Any hunks present in the prefixed version must be correctly ordered and have a corresponding hunk in the unprefixed version.
-The corresponding unprefixed hunk may be expressed with a different format or in a different way, but must have matching effective content for the old and new side of the comparison.
+Any extended headers present in the prefixed version must also be present `[HDF34]` in the unprefixed version and match exactly `[HDF35]`.
+Any hunks present in the prefixed version must have a corresponding hunk in the unprefixed version `[HDF36]`.
+The corresponding unprefixed hunk may be expressed with a different format or in a different way, but must have matching effective content for the old and new side of the comparison `[HDF37]`.
 
 Tools designed to consume hintful diff format should prioritize the semantic information in the prefixed version over that in the unprefixed.
 
 ### Compat format
 
 The compat diff format is a subset of the hintful diff format, defined by one added constraint:
-No unprefixed hunks may use the hintful hunk format.
+No unprefixed hunks may use the hintful hunk format `[HDF41]`.
 
 A compat diff format file can be used as-is by tools designed to consume unified diff format.
 

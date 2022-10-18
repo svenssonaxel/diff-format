@@ -1,7 +1,46 @@
 #!/usr/bin/env python3.9
 import contextlib, hashlib, os, re, sys, tempfile, threading, unittest
 
-_totalNumberOfAssertions = 29423
+_totalNumberOfAssertions = 29876
+
+# A table of strings expected to be included in the error message when validating invalid diff files
+expectedErrorMessagesForInvalidFiles={
+    '001/08-a-b.invalid.hintful.diff': ['[HDF11]', 'end of file'],
+    '001/09-a-b.invalid.hintful.diff': ['[HDF11]'],
+    '001/10-a-b.invalid.hintful.diff': ['[HDF13]'],
+    '001/11-a-b.invalid.hintful.diff': ['[HDF15]'],
+    '001/12-a-b.invalid.hintful.diff': ['[HDF11]', 'right side'],
+    '001/20-a-b.invalid.hintful.diff': ['[HDF12]'],
+    '001/21-a-b.invalid.hintful.diff': ['[HDF17]'],
+    '001/22-a-b.invalid.hintful.diff': ['[HDF22]'],
+    '002/02-a-b.invalid.hintful.diff': ['[HDF16]', 'CR character not allowed before $ newline marker'],
+    '002/03-a-b.invalid.hintful.diff': ['[HDF16]', 'sequence'],
+    '002/04-a-b.invalid.hintful.diff': ['[HDF16]', 'sequence'],
+    '002/05-a-b.invalid.hintful.diff': ['[HDF18]', 'left side'],
+    '003/02-o-b.invalid.compat.diff': ['[HDF41]'],
+    '003/07-a-m.invalid.hintful.diff': ['[HDF37]', 'right side'],
+    '003/09-b-m.invalid.hintful.diff': ['[HDF15]'],
+    '003/10-o-b.invalid.hintful.diff': ['[HDF24]'],
+    '003/11-o-b.invalid.hintful.diff': ['[HDF24]'],
+    '003/12-o-b.invalid.hintful.diff': ['[HDF24]'],
+    '003/13-o-b.invalid.hintful.diff': ['[HDF36]'],
+    '003/14-o-b.invalid.hintful.diff': ['[HDF33]'],
+    '003/15-o-b.invalid.hintful.diff': ['[HDF35]', 'Index', 'mismatch'],
+    '003/16-o-b.invalid.hintful.diff': ['[HDF34]', 'Index', 'missing'],
+    '003/17-o-b.invalid.hintful.diff': ['[HDF35]', 'Labels', 'mismatch'],
+    '003/18-o-b.invalid.hintful.diff': ['[HDF34]', 'Labels', 'missing'],
+    '003/19-o-b.invalid.hintful.diff': ['[HDF23]', 'git', 'hintful'],
+    '003/20-o-b.invalid.compat.diff': ['[HDF23]', 'git', 'hintful'],
+    '003/21-a-m.invalid.compat.diff': ['[HDF21]'],
+    '003/22-a-m.invalid.compat.diff': ['[HDF21]'],
+    '003/23-a-m.invalid.unified.diff': ['[HDF21]'],
+    '003/39-o-b.invalid.hintful.diff': ['[HDF31]', 'index'],
+    '003/40-o-b.invalid.hintful.diff': ['[HDF31]', '---'],
+    '003/41-o-b.invalid.hintful.diff': ['[HDF31]', '+++'],
+    '003/42-o-b.invalid.hintful.diff': ['[HDF31]', 'hunk header'],
+    '003/43-o-b.invalid.hintful.diff': ['[HDF31]', 'content'],
+    '003/49-o-b.invalid.hintful.diff': ['[HDF32]'],
+}
 
 def m(pattern, string):
     match = re.match(pattern, string, re.DOTALL)
@@ -77,12 +116,13 @@ def threads():
         die('An error occurred somewhere, so stopping all activity')
 def addThread(fun, *args):
     global _local
-    _local.threads.append(threading.Thread(target=runOneThread, args=(_local.cwd, _local.nestTestMsgs, fun, *args), ))
-def runOneThread(cwd, nestTestMsgs, fun, *args):
+    _local.threads.append(threading.Thread(target=runOneThread, args=(_local.cwd, _local.nestTestMsgs, _local.testDir, fun, *args), ))
+def runOneThread(cwd, nestTestMsgs, testDir, fun, *args):
     # Reconstruct the thread-local object
     global _local
     _local.cwd = cwd
     _local.nestTestMsgs = nestTestMsgs
+    _local.testDir=testDir
     try:
         return fun(*args)
     except Exception as e:
@@ -174,15 +214,18 @@ class TestAll(unittest.TestCase):
     # Will be executed by unittest.main
 
     def test_all(self):
+        global _local
         testdirs=os_listdir()
         testdirs.sort()
         try:
             with threads():
                 for testdir in testdirs:
+                    _local.testDir = testdir
                     if re.match('^[0-9]{3}$', testdir):
                         with self.nestTest(f'Tests in directory {testdir}'):
                             with inDir(testdir):
                                 addThread(self.doTestThisDir)
+                addThread(self.doTestErrorCodes)
             self.updateStatus(True)
         except Exception as e:
             # Make sure we only report the first error
@@ -328,10 +371,23 @@ class TestAll(unittest.TestCase):
                                 self.sh(f'cat {diffFile} | {convertToUnifiedDiff} > {diffFile}.converted-to.unified.diff')
                                 self.doTestDiffForwardPatch(f'{diffFile}.converted-to.unified.diff', v1, v2, 'unified')
 
-    def doTestInvalidDiff(self, diffFile, mode):
+    def doTestInvalidDiff(self, diffFile, mode, checkMessages=True):
+        global _local
         for validateDiff in implementationsOf[f'validate-{mode}-diff']:
             with self.nestTest(f'Make sure {mode} diff is invalid using {validateDiff}'):
-                self.sh(f'cat {diffFile} | {validateDiff} 2>/dev/null', 1)
+                with filesInTmpDir([diffFile]):
+                    stderrFile=f'{diffFile}.validation.stderr'
+                    self.sh(f'cat {diffFile} | {validateDiff} 2>{stderrFile}', 1)
+                    if checkMessages:
+                        with self.nestTest(f'Checking error message'):
+                            with open(joinCwd(stderrFile)) as errMsgFile:
+                                errMsg=errMsgFile.read()
+                                fileKey=f'{_local.testDir}/{diffFile}'
+                                with self.nestTest(f'Error message for validating {fileKey} is "{errMsg.strip()}"'):
+                                    expectedErrMsgs=expectedErrorMessagesForInvalidFiles[fileKey]
+                                    for expectedErrMsg in expectedErrMsgs:
+                                        with self.nestTest(f'Check that the error message includes "{expectedErrMsg}"'):
+                                            self.assertEqual(True, expectedErrMsg.lower() in errMsg.lower())
             # Validity should be preserved over newline conversions for any diff file not using the `\ No newline` syntax
             if(not self.shBool(f"grep -ERq '^\\|?\\\\ No newline' {diffFile}")):
                 for [explanation, PRE] in [
@@ -348,10 +404,11 @@ class TestAll(unittest.TestCase):
                             with self.nestTest(f'Make sure {mode} diff is invalid using {validateDiff}'):
                                 self.sh(f'cat {newDiffFile} | {validateDiff} 2>/dev/null', 1)
         # A compat format diff should always be able to be treated as hintful or unified.
-        # Hence, an invalid hintfule or unified diff must never be a valid compat diff
+        # Hence, an invalid hintful or unified diff must never be a valid compat diff.
         if(mode in ['hintful', 'unified']):
             with self.nestTest(f'Interpret this {mode} diff as if it was in compat format'):
-                self.doTestInvalidDiff(diffFile, 'compat')
+                # Even though invalidity is preserved by this re-interpretation, the error message might not.
+                self.doTestInvalidDiff(diffFile, 'compat', False)
 
     def doTestContentFiles(self, v1, v2):
         for mode in ['hintful', 'unified']:
@@ -368,6 +425,21 @@ class TestAll(unittest.TestCase):
                 self.sh(f'./{genfile} < {sourcefile} > {generatedfile}')
                 with self.nestTest(f'Compare {generatedfile} to {targetfile}'):
                     self.assertSame(generatedfile, targetfile)
+
+    def doTestErrorCodes(self):
+        with filesInTmpDir(["../implementations/python3/implementation.py", "../ERROR-CODES.md", "../tests"]):
+            self.sh(r"find tests | sed -r 's/^/d/;s/^.*\/([0-9]{3}\/.*\.invalid\..*)$/\1/;/^d/d;'|sort|uniq > invalidation-test-case-files")
+            self.sh(r"printf '" + '\\n'.join(expectedErrorMessagesForInvalidFiles.keys()) + r"' |sort > invalidation-test-cases-in-table")
+            with self.nestTest('Compare *invalid* test case files to those mentioned in the table for expected error messages'):
+                self.assertSame("invalidation-test-case-files", "invalidation-test-cases-in-table")
+            self.sh(r"< implementation.py sed -r 's/^/d/;s/^.*\[(HDF[0-9][0-9])\].*$/\1/;/^d/d;'|sort|uniq > error-codes-in-implementation.py")
+            self.sh(r"< ERROR-CODES.md sed -r 's/^/d/;s/^.*\[(HDF[0-9][0-9])\].*$/\1/;/^d/d;'|sort|uniq > error-codes-in-ERROR-CODES.md")
+            self.sh(r"printf '" + '\\n'.join([value for values in expectedErrorMessagesForInvalidFiles.values() for value in values]) + r"'" +
+                    r"| sed -r 's/^/d/;s/^.*\[(HDF[0-9][0-9])\].*$/\1/;/^d/d;'|sort|uniq > error-codes-in-table")
+            with self.nestTest('Compare error codes in ERROR-CODES.md to those mentioned in implementations/python3/implementation.py'):
+                self.assertSame("error-codes-in-ERROR-CODES.md", "error-codes-in-implementation.py")
+            with self.nestTest('Compare error codes in ERROR-CODES.md to those mentioned in the table for expected error messages'):
+                self.assertSame("error-codes-in-ERROR-CODES.md", "error-codes-in-table")
 
     # Utility
 

@@ -1,7 +1,7 @@
 diff --hintful a/file.py b/file.py
 --- a/file.py
 +++ b/file.py
-@@ -1,4 (11) +1,4 @@
+@@ -1,4 (20) +1,4 @@
 >enclosing if
 +if True:$
 +    \
@@ -12,6 +12,7 @@ diff --hintful a/file.py b/file.py
            3]:$
 +    \
      print(a)$
+\ No newline at end of file
 >
 <enclosing if
  if True:$
@@ -21,4 +22,5 @@ diff --hintful a/file.py b/file.py
 -              3\
  ]:$
          print(a)$
+\ No newline at end of file
 <

@@ -10,9 +10,9 @@ Filename schema inside test directories:
   - `compat`: A correct compat diff format file.
   - `hintful`: A correct hintful diff format file.
   - `unified`: A correct unified diff format file.
-  - `invalid.compat`: A file that should not pass validation for compat diff format.
-  - `invalid.hintful`: A file that should not pass validation for hintful diff format.
-  - `invalid.unified`: A file that should not pass validation for unified diff format.
+  - `invalid.compat`: An file that should not pass validation for compat diff format.
+  - `invalid.hintful`: An file that should not pass validation for hintful diff format.
+  - `invalid.unified`: An file that should not pass validation for unified diff format.
 - `<NN>-<AA>-<BB>.gen/`:
   A script that, given diff file `<AA>-*` on stdin, will produce diff file `<BB>-*` on stdout.
   These are for asserting relationships between related test cases.
@@ -45,6 +45,15 @@ Test directories and what they focus on, files and what they test:
     Snippet content must be consistent between invocations.
   - `12-a-b.invalid.hintful.diff`:
     Content line count must be correct.
+  - `20-a-b.invalid.hintful.diff`:
+    - Random data in place of content or snippet line.
+    - Based on `07-a-b.hintful.diff`.
+  - `21-a-b.invalid.hintful.diff`:
+    - Hintful hunk with `\ No newline at end of file`.
+    - Based on `07-a-b.hintful.diff`.
+  - `22-a-b.invalid.hintful.diff`:
+    - Random data in place of extended header.
+    - Based on `07-a-b.hintful.diff`.
 - `002/`:
   File-level operations and CR handling.
   - `a/`:
@@ -86,7 +95,7 @@ Test directories and what they focus on, files and what they test:
   - `04-a-b.invalid.hintful.diff`:
     No `\r` before `\` newline marker if the following content is `\r\n`.
   - `05-a-b.invalid.hintful.diff`:
-    One line cannot span two hunks.
+    No more content in file after hunk ends without newline.
 - `003/`:
   Prefixed hunks, compat format, snippets.
   - `o/`:
@@ -172,6 +181,27 @@ Test directories and what they focus on, files and what they test:
   - `23-a-m.invalid.unified.diff`:
     - Bad unprefixed file header.
     - Same content as `22-a-m.invalid.compat.diff`.
+  - `39-o-b.invalid.hintful.diff`:
+    - Prefix mismatch for index line.
+    - Based on `04-o-b.compat.diff`.
+  - `40-o-b.invalid.hintful.diff`:
+    - Prefix mismatch for --- line.
+    - Based on `04-o-b.compat.diff`.
+  - `41-o-b.invalid.hintful.diff`:
+    - Prefix mismatch for +++ line.
+    - Based on `04-o-b.compat.diff`.
+  - `42-o-b.invalid.hintful.diff`:
+    - Prefix mismatch for hunk header line.
+    - Based on `04-o-b.compat.diff`.
+  - `43-o-b.invalid.hintful.diff`:
+    - Prefix mismatch for content line.
+    - Based on `04-o-b.compat.diff`.
+  - `49-o-b.invalid.hintful.diff`:
+    - Prefixed file comparison without an unprefixed counterpart
+    - Based on `04-o-b.compat.diff`.
+  - `51-o-b.unified.diff`:
+    - Prefixed file comparisons are ignored
+    - Same content as `49-o-b.invalid.hintful.diff`.
 - `004/`:
   Binary files.
   - `01-a-b.hintful.diff`:
