@@ -13,6 +13,10 @@ Filename schema inside test directories:
   - `invalid.compat`: A file that should not pass validation for compat diff format.
   - `invalid.hintful`: A file that should not pass validation for hintful diff format.
   - `invalid.unified`: A file that should not pass validation for unified diff format.
+- `<NN>-<AA>-<BB>.gen/`:
+  A script that, given diff file `<AA>-*` on stdin, will produce diff file `<BB>-*` on stdout.
+  These are for asserting relationships between related test cases.
+  `<NN>` is for ordering.
 
 Test directories and what they focus on, files and what they test:
 - `001/`:

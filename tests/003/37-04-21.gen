@@ -1,0 +1,3 @@
+#!/usr/bin/env -S sed -rf
+
+1s/hintful/blabla/

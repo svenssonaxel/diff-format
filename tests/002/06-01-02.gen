@@ -1,0 +1,7 @@
+#!/usr/bin/env -S sed -rf
+
+# Cut lines 1-8
+1,8!d
+
+# Transpose CR and dollar sign on last line
+8s/\$\r/\r$/

@@ -1,0 +1,3 @@
+#!/usr/bin/env -S sed -rf
+
+2s/863ee9f\.\.2763cf7/abcdef0..9abcdef/
