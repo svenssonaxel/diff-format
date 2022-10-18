@@ -8,6 +8,7 @@ Specification, reference implementations and test battery for Hintful diff forma
   * Producing diff format files in hintful and unified formats (by calling out to `git diff`).
   * Consuming diff format files in unified format (by calling out to `git apply`).
 * The [tests/](tests/) directory contains tests for the implementations in `implementations/`.
+* The [ERROR-CODES.md](ERROR-CODES.md) file has a list of error codes used in implementations and tests.
 
 # Why?
 

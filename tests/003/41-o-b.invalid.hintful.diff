@@ -1,14 +1,19 @@
 |diff --hintful a/luhn.test.js b/luhn.test.js
-|index 6ae9b7c..ebb21c0 100644
+|index 863ee9f..2763cf7 100644
 |--- a/luhn.test.js
-|+++ b/luhn.test.js
-|@@ -14,5 17\ +13,7 @@ const testCases = [
++++ b/luhn.test.js
+|@@ -1,4 +1,3 @@
+|-const assert = require('assert');
+| const luhn = require('./luhn.js');
+| 
+| const testCases = [
+|@@ -13,5 17\ +12,7 @@ const testCases = [
 | ];$
 | $
 | for(const {str, result} of testCases){$
-|+    test(JSON.stringify({str, result}), ()=>{ // This text shouldn't be here$
-|+    \
+|+    test(JSON.stringify({str, result}), ()=>{$
 |     \
+|+    \
 |-assert\
 |+expect\
 | (\
@@ -21,7 +26,7 @@
 |+    })$
 | }$
 diff --git a/luhn.test.js b/luhn.test.js
-index 6ae9b7c..ebb21c0 100644
+index 863ee9f..2763cf7 100644
 --- a/luhn.test.js
 +++ b/luhn.test.js
 @@ -1,4 +1,3 @@
@@ -29,7 +34,7 @@ index 6ae9b7c..ebb21c0 100644
  const luhn = require('./luhn.js');
  
  const testCases = [
-@@ -14,5 +13,7 @@ const testCases = [
+@@ -13,5 +12,7 @@ const testCases = [
  ];
  
  for(const {str, result} of testCases){

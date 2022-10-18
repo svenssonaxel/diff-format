@@ -1,0 +1,9 @@
+#!/usr/bin/env -S sed -rf
+
+# On line 33, replace "1" with "100"
+33s/1/100/g
+
+# Cut lines 9-15 and 33-37
+9,15p
+33,37p
+d

@@ -1,8 +1,7 @@
 diff --hintful a/file.py b/file.py
 --- a/file.py
 +++ b/file.py
-@@ -1,4 ^11\ +1,4 @@
-^:enclosing if
+@@ -1,4 ^16\ +1,4 @@
 =#if True:$
 =#    \
 =-for a in [1,$
@@ -12,8 +11,6 @@ diff --hintful a/file.py b/file.py
 =-          3]:$
 =#    \
 =-    print(a)$
-$:
-^:enclosing if
 =+if True:$
 =+    for a in [1,$
 =+              2\
@@ -21,4 +18,3 @@ $:
 =#              3\
 =+]:$
 =+        print(a)$
-$:
