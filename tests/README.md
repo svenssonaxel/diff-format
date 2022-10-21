@@ -3,16 +3,16 @@ Test directories are three-digit numbers.
 Filename schema inside test directories:
 - `/[a-z]/`:
   A directory containing a version of data
-- `/NN-A-B.TYPE.diff`:
-  A diff file comparing versions A and B.
-  NN is for ordering.
-  TYPE can be:
+- `<NN>-<A>-<B>.<TYPE>.diff`:
+  A diff file comparing versions `<A>` and `<B>`.
+  `<NN>` is for ordering.
+  `<TYPE>` can be:
   - `compat`: A correct compat diff format file.
   - `hintful`: A correct hintful diff format file.
   - `unified`: A correct unified diff format file.
-  - `invalid.compat`: An file that should not pass validation for compat diff format.
-  - `invalid.hintful`: An file that should not pass validation for hintful diff format.
-  - `invalid.unified`: An file that should not pass validation for unified diff format.
+  - `invalid.compat`: A file that should not pass validation for compat diff format.
+  - `invalid.hintful`: A file that should not pass validation for hintful diff format.
+  - `invalid.unified`: A file that should not pass validation for unified diff format.
 
 Test directories and what they focus on, files and what they test:
 - `001/`:
