@@ -17,8 +17,12 @@ build-container() {
     docker build -t $image docker
 }
 
-run-tests() {
+run-basic-tests() {
     docker-run -v "$(pwd):/home/user/diff-format:ro" -w /home/user/diff-format/tests $image ./run-tests
+}
+
+run-all-tests() {
+    docker-run -v "$(pwd):/home/user/diff-format:ro" -w /home/user/diff-format/tests -e RUNALLTESTS=yes $image ./run-tests
 }
 
 lint-scripts() {
@@ -31,7 +35,8 @@ check-img() {
 
 build-and-validate() {
     build-container
-    run-tests
+    run-basic-tests
+    run-all-tests
     lint-scripts
     check-img
 }
@@ -44,7 +49,7 @@ update-img() {
 CMD="$1"
 
 case "$CMD" in
-    build-container|run-tests|lint-scripts|check-img|build-and-validate|update-img)
+    build-container|run-basic-tests|run-all-tests|lint-scripts|check-img|build-and-validate|update-img)
         $CMD
         ;;
     *)
@@ -52,7 +57,8 @@ case "$CMD" in
             cat <<EOF
 Usage:
   ./script build-container              # Build container for running tests
-  ./script run-tests                    # Use container to run tests
+  ./script run-basic-tests              # Use container to run the basic test suite
+  ./script run-all-tests                # Use container to run all tests
   ./script lint-scripts                 # Use container to lint shell scripts
   ./script check-img                    # Use container to check that img/ is up to date
   ./script build-and-validate           # Run all of the above in order

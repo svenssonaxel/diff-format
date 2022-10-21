@@ -479,6 +479,7 @@ def formatDiffHelper(inputObjs, task="raw"):
                     if not obj['content'].endswith('\n'):
                         yield from [
                             '\n',
+                            *prefix,
                             colorize(fg="grey"),
                             '\\',
                             bar,
@@ -992,11 +993,15 @@ def validateFilesAndHunks(inputObjs):
         if(labelsCache[fileKey]['prefix']):
             die('[HDF34] Labels line present for prefixed file but missing for unprefixed file')
 
-def assertNoUnprefixedHintfulFileComparisons(inputObjs):
+def assertNoUnprefixedHintfulFileComparisons(inputObjs, msg):
     for obj in inputObjs:
         if(obj['op']=='beginfile' and not obj['prefix'] and obj['fileformat']=='hintful'):
-            die('[HDF41] Unexpected unprefixed hintful file comparison in compat diff file')
+            die(msg)
         yield obj
+def assertNoUnprefixedHintfulFileComparisonsInCompat(inputObjs):
+    yield from assertNoUnprefixedHintfulFileComparisons(inputObjs, '[HDF41] Unexpected unprefixed hintful file comparison in compat diff file')
+def assertNoUnprefixedHintfulFileComparisonsInUnified(inputObjs):
+    yield from assertNoUnprefixedHintfulFileComparisons(inputObjs, '[HDF21] Unexpected unprefixed hintful file comparison in unified diff file')
 
 def applyPrefixedFiles(inputObjs):
     fileCache={}
@@ -1115,7 +1120,7 @@ def getProcStack():
             output,
         ],
         'validate-compat-diff': [
-            assertNoUnprefixedHintfulFileComparisons,
+            assertNoUnprefixedHintfulFileComparisonsInCompat,
             validateSnippets,
             validateFilesAndHunks,
             sink,
@@ -1126,6 +1131,7 @@ def getProcStack():
             sink,
         ],
         'validate-unified-diff': [
+            assertNoUnprefixedHintfulFileComparisonsInUnified,
             removeEverythingPrefixed,
             validateFilesAndHunks,
             sink,
