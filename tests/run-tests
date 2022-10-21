@@ -1,7 +1,7 @@
 #!/usr/bin/env python3.9
 import contextlib, hashlib, os, re, sys, tempfile, threading, unittest
 
-_totalNumberOfAssertions = 30262
+_totalNumberOfAssertions = 8467
 
 # A table of strings expected to be included in the error message when validating invalid diff files
 expectedErrorMessagesForInvalidFiles={
@@ -169,11 +169,13 @@ class TestAll(unittest.TestCase):
     # Count asserts
 
     _assertCount=0
+    _assertCountLock=threading.Lock()
 
     def assertEqual(self, expected, actual):
-        super().assertEqual(expected, actual)
-        self._assertCount+=1
-        self.updateStatus(False)
+        with self._assertCountLock:
+            super().assertEqual(expected, actual)
+            self._assertCount+=1
+            self.updateStatus(False)
 
     def updateStatus(self, force):
         global _totalNumberOfAssertions
@@ -299,7 +301,7 @@ class TestAll(unittest.TestCase):
         # Validate diff file
         for validateDiff in implementationsOf[f'validate-{mode}-diff']:
             with self.nestTest(f'Validate {mode} diff using {validateDiff}'):
-                self.sh(f'cat {diffFile} | {validateDiff}')
+                self.shAssert(f'cat {diffFile} | {validateDiff}')
         # For compat and unified format, try patching
         if(mode in ['compat', 'unified']):
             self.doTestDiffForwardPatch(diffFile, v1, v2, mode)
@@ -348,7 +350,7 @@ class TestAll(unittest.TestCase):
                         # Validity should be preserved over newline conversions
                         for validateDiff in implementationsOf[f'validate-{mode}-diff']:
                             with self.nestTest(f'Validate {mode} diff using {validateDiff}'):
-                                self.sh(f'cat {newDiffFile} | {validateDiff}')
+                                self.shAssert(f'cat {newDiffFile} | {validateDiff}')
                         self.doTestDiffForwardPatch(newDiffFile, newV1, newV2, mode)
 
     def doTestDiffForwardPatch(self, diffFile, v1, v2, mode):
@@ -377,7 +379,7 @@ class TestAll(unittest.TestCase):
             with self.nestTest(f'Make sure {mode} diff is invalid using {validateDiff}'):
                 with filesInTmpDir([diffFile]):
                     stderrFile=f'{diffFile}.validation.stderr'
-                    self.sh(f'cat {diffFile} | {validateDiff} 2>{stderrFile}', 1)
+                    self.shAssert(f'cat {diffFile} | {validateDiff} 2>{stderrFile}', 1)
                     if checkMessages:
                         with self.nestTest(f'Checking error message'):
                             with open(joinCwd(stderrFile)) as errMsgFile:
@@ -402,7 +404,7 @@ class TestAll(unittest.TestCase):
                             self.sh(f'cp {diffFile} {newDiffFile}')
                             self.mapFiles(f"perl -pe '{PRE}'", [newDiffFile])
                             with self.nestTest(f'Make sure {mode} diff is invalid using {validateDiff}'):
-                                self.sh(f'cat {newDiffFile} | {validateDiff} 2>/dev/null', 1)
+                                self.shAssert(f'cat {newDiffFile} | {validateDiff} 2>/dev/null', 1)
         # A compat format diff should always be able to be treated as hintful or unified.
         # Hence, an invalid hintful or unified diff must never be a valid compat diff.
         if(mode in ['hintful', 'unified']):
@@ -444,18 +446,24 @@ class TestAll(unittest.TestCase):
     # Utility
 
     def assertSame(self, v1, v2):
-        self.sh(f'diff -u -r {v1} {v2}', 0)
+        self.shAssert(f'diff -u -r {v1} {v2}', 0)
 
     def assertNotSame(self, v1, v2):
-        self.sh(f'diff -u -r {v1} {v2} > /dev/null', 1)
+        self.shAssert(f'diff -u -r {v1} {v2} > /dev/null', 1)
+
+    def _sh(self, cmd):
+        return os.waitstatus_to_exitcode(os_system(f'set -e; {cmd}'))
 
     def sh(self, cmd, expectedExitCode=0):
-        self.assertEqual(expectedExitCode, os.waitstatus_to_exitcode(os_system(f'set -e; {cmd}')))
+        assert expectedExitCode==self._sh(cmd) # Do not count this assertion
+
+    def shAssert(self, cmd, expectedExitCode=0):
+        self.assertEqual(expectedExitCode, self._sh(cmd))
 
     def shBool(self, cmd):
-        ec = os.waitstatus_to_exitcode(os_system(f'set -e; {cmd}'))
-        assert ec in [0, 1]
-        return {0: True, 1: False}[ec]
+        exitCode = self._sh(cmd)
+        assert exitCode in [0, 1] # Do not count this assertion
+        return {0: True, 1: False}[exitCode]
 
     def hashFile(self, fileName):
         with open(joinCwd(fileName),'rb') as file:
