@@ -1,7 +1,8 @@
 #!/usr/bin/env python3.9
 import contextlib, hashlib, os, re, sys, tempfile, threading, unittest
 
-_totalNumberOfAssertions = 8350
+runAllTests="RUNALLTESTS" in os.environ and os.environ['RUNALLTESTS']
+_totalNumberOfAssertions = 19642 if runAllTests else 5889
 
 # A table of strings expected to be included in the error message when validating invalid diff files
 expectedErrorMessagesForInvalidFiles={
@@ -297,7 +298,7 @@ class TestAll(unittest.TestCase):
     # Functions for testing
 
     def doTestDiff(self, diffFile, v1, v2, mode):
-        if(self.alreadyRun("doTestDiff", self.hashFile(diffFile), v1, v2, mode)): return
+        if(self.alreadyRun("doTestDiff", self.hashFileOrDir(diffFile), self.hashFileOrDir(v1), self.hashFileOrDir(v2), mode)): return
         # Validate diff file
         for validateDiff in implementationsOf[f'validate-{mode}-diff']:
             with self.nestTest(f'Validate {mode} diff using {validateDiff}'):
@@ -305,11 +306,23 @@ class TestAll(unittest.TestCase):
         # For compat and unified format, try patching
         if(mode in ['compat', 'unified']):
             self.doTestDiffForwardPatch(diffFile, v1, v2, mode)
-        # A compat format diff should always be able to be treated as hintful or unified
-        if(mode=='compat'):
-            for othermode in ['hintful', 'unified']:
-                with self.nestTest(f'Interpret this compat diff as if it was in {othermode} format'):
-                    self.doTestDiff(diffFile, v1, v2, othermode)
+        # By specification, we have the following invariants:
+        # (1) ¬hasPrefixLines(file) → isValidUnified(file) → isValidCompat(file)
+        if(mode=="unified" and not self.shBool(f"grep -ERq '^\\|' {diffFile}")):
+            with self.nestTest('Interpret this unified diff as if it was in compat format'):
+                self.doTestDiff(diffFile, v1, v2, "compat")
+        # (2) isValidCompat(file) → isValidUnified(file)
+        if(mode=="compat"):
+            with self.nestTest('Interpret this compat diff as if it was in unified format'):
+                self.doTestDiff(diffFile, v1, v2, "unified")
+        # (3) ¬hasUnprefixedHintfulFileComparison(file) → isValidHintful(file) → isValidCompat(file)
+        if(mode=="hintful" and not self.shBool(f"grep -ERq '^diff --hintful ' {diffFile}")):
+            with self.nestTest('Interpret this hintful diff as if it was in compat format'):
+                self.doTestDiff(diffFile, v1, v2, "compat")
+        # (4) isValidCompat(file) → isValidHintful(file)
+        if(mode=="compat"):
+            with self.nestTest('Interpret this compat diff as if it was in hintful format'):
+                self.doTestDiff(diffFile, v1, v2, "hintful")
         # Test converting to the other diff formats
         if not m(r'^.*converted-to\..*$', diffFile):
             for othermode in ['compat', 'hintful', 'unified']:
@@ -330,15 +343,15 @@ class TestAll(unittest.TestCase):
                         self.assertSame(f'{diffFile}.reversed', f'{diffFile}.triple-reversed')
                     with self.nestTest('Use reverse diff file as diff file'):
                         self.doTestDiff(f'{diffFile}.reversed', v2, v1, mode)
-        # If no `\ No newline` lines are found, test newline conversions
+        # Validity and semantics should be preserved over newline conversions for any diff file not using the `\ No newline` syntax
         if(not self.shBool(f"grep -ERq '^\\|?\\\\ No newline' {diffFile}")):
+            actions=[]
+            if not self.shBool(f"grep -ERq `printf '\\r\\r$'` {diffFile} {v1} {v2}"):
+                actions.append(['Add CR', 'add-cr', r's@\n@\r\n@'])
+            if self.shBool(f"grep -ERq `printf '\\r$'` {diffFile} {v1} {v2}"):
+                actions.append(['Remove CR', 'rm-cr', r's@\r\n@\n@'])
             with filesInTmpDir([diffFile, v1, v2]):
-                for [explanation, ext, PRE] in [
-                        ['Add CR', 'add-cr', r's@\n@\r\n@'],
-                        ['Add CRCR', 'add-crcr', r's@\n@\r\r\n@'],
-                        ['Remove CR', 'rm-cr', r's@\r\n@\n@'],
-                        ['Remove CR twice', '2rm-cr', r's@\r\n@\n@;s@\r\n@\n@'],
-                ]:
+                for [explanation, ext, PRE] in actions:
                     with self.nestTest(f'Convert newline: {explanation}'):
                         newDiffFile=f'{diffFile}.{ext}.diff'
                         newV1=f'{v1}.{ext}'
@@ -348,13 +361,16 @@ class TestAll(unittest.TestCase):
                         self.sh(f'cp -pr {v2} {newV2}')
                         self.mapFiles(f"perl -pe '{PRE}'", [newDiffFile, newV1, newV2])
                         # Validity should be preserved over newline conversions
-                        for validateDiff in implementationsOf[f'validate-{mode}-diff']:
-                            with self.nestTest(f'Validate {mode} diff using {validateDiff}'):
-                                self.shAssert(f'cat {newDiffFile} | {validateDiff}')
-                        self.doTestDiffForwardPatch(newDiffFile, newV1, newV2, mode)
+                        if runAllTests:
+                            self.doTestDiff(newDiffFile, newV1, newV2, mode)
+                        else:
+                            for validateDiff in implementationsOf[f'validate-{mode}-diff']:
+                                with self.nestTest(f'Validate {mode} diff using {validateDiff}'):
+                                    self.shAssert(f'cat {newDiffFile} | {validateDiff}')
+                            self.doTestDiffForwardPatch(newDiffFile, newV1, newV2, mode)
 
     def doTestDiffForwardPatch(self, diffFile, v1, v2, mode):
-        if(self.alreadyRun("doTestDiffForwardPatch", self.hashFile(diffFile), v1, v2, mode)): return
+        if(self.alreadyRun("doTestDiffForwardPatch", self.hashFileOrDir(diffFile), self.hashFileOrDir(v1), self.hashFileOrDir(v2), mode)): return
         with self.nestTest(f'Test {mode} forward patch'):
             with filesInTmpDir([diffFile, v1, v2]):
                 if(mode in ['compat', 'unified']):
@@ -373,8 +389,11 @@ class TestAll(unittest.TestCase):
                                 self.sh(f'cat {diffFile} | {convertToUnifiedDiff} > {diffFile}.converted-to.unified.diff')
                                 self.doTestDiffForwardPatch(f'{diffFile}.converted-to.unified.diff', v1, v2, 'unified')
 
-    def doTestInvalidDiff(self, diffFile, mode, checkMessages=True):
-        global _local
+    def doTestInvalidDiff(self, diffFile, mode, checkMessages=True, fileKey=None):
+        if(fileKey==None):
+            global _local
+            fileKey=f'{_local.testDir}/{diffFile}'
+        if(self.alreadyRun("doTestInvalidDiff", self.hashFileOrDir(diffFile), mode, checkMessages, fileKey)): return
         for validateDiff in implementationsOf[f'validate-{mode}-diff']:
             with self.nestTest(f'Make sure {mode} diff is invalid using {validateDiff}'):
                 with filesInTmpDir([diffFile]):
@@ -382,35 +401,49 @@ class TestAll(unittest.TestCase):
                     self.shAssert(f'cat {diffFile} | {validateDiff} 2>{stderrFile}', 1)
                     if checkMessages:
                         with self.nestTest(f'Checking error message'):
-                            with open(joinCwd(stderrFile)) as errMsgFile:
+                            with open(joinCwd(stderrFile), encoding='latin1') as errMsgFile:
                                 errMsg=errMsgFile.read()
-                                fileKey=f'{_local.testDir}/{diffFile}'
                                 with self.nestTest(f'Error message for validating {fileKey} is "{errMsg.strip()}"'):
                                     expectedErrMsgs=expectedErrorMessagesForInvalidFiles[fileKey]
                                     for expectedErrMsg in expectedErrMsgs:
                                         with self.nestTest(f'Check that the error message includes "{expectedErrMsg}"'):
                                             self.assertEqual(True, expectedErrMsg.lower() in errMsg.lower())
-            # Validity should be preserved over newline conversions for any diff file not using the `\ No newline` syntax
-            if(not self.shBool(f"grep -ERq '^\\|?\\\\ No newline' {diffFile}")):
-                for [explanation, PRE] in [
-                        ['Add CR', r's@\n@\r\n@'],
-                        ['Add CRCR', r's@\n@\r\r\n@'],
-                        ['Remove CR', r's@\r\n@\n@'],
-                        ['Remove CR twice', r's@\r\n@\n@;s@\r\n@\n@'],
-                ]:
+        # Validity should be preserved over newline conversions for any diff file not using the `\ No newline` syntax
+        if(not self.shBool(f"grep -ERq '^\\|?\\\\ No newline' {diffFile}")):
+            actions=[]
+            if not self.shBool(f"grep -ERq `printf '\\r\\r$'` {diffFile}"):
+                actions.append(['Add CR', 'add-cr', r's@\n@\r\n@'])
+            if self.shBool(f"grep -ERq `printf '\\r$'` {diffFile}"):
+                actions.append(['Remove CR', 'rm-cr', r's@\r\n@\n@'])
+            with filesInTmpDir([diffFile]):
+                for [explanation, ext, PRE] in actions:
                     with self.nestTest(f'Convert newline: {explanation}'):
-                        with filesInTmpDir([diffFile]):
-                            newDiffFile=f'{diffFile}.newlineconverted.diff'
-                            self.sh(f'cp {diffFile} {newDiffFile}')
-                            self.mapFiles(f"perl -pe '{PRE}'", [newDiffFile])
-                            with self.nestTest(f'Make sure {mode} diff is invalid using {validateDiff}'):
-                                self.shAssert(f'cat {newDiffFile} | {validateDiff} 2>/dev/null', 1)
-        # A compat format diff should always be able to be treated as hintful or unified.
-        # Hence, an invalid hintful or unified diff must never be a valid compat diff.
-        if(mode in ['hintful', 'unified']):
-            with self.nestTest(f'Interpret this {mode} diff as if it was in compat format'):
-                # Even though invalidity is preserved by this re-interpretation, the error message might not.
-                self.doTestInvalidDiff(diffFile, 'compat', False)
+                        newDiffFile=f'{diffFile}.{ext}.diff'
+                        self.sh(f'cp {diffFile} {newDiffFile}')
+                        self.mapFiles(f"perl -pe '{PRE}'", [newDiffFile])
+                        self.doTestInvalidDiff(newDiffFile, mode, checkMessages, fileKey)
+        # By specification, we have the following invariants:
+        # (1) ¬hasPrefixLines(file) → isValidUnified(file) → isValidCompat(file)
+        # (2) isValidCompat(file) → isValidUnified(file)
+        # (3) ¬hasUnprefixedHintfulFileComparison(file) → isValidHintful(file) → isValidCompat(file)
+        # (4) isValidCompat(file) → isValidHintful(file)
+        # By contraposition, we therefore have the following invariants useful for testing invalid diff files:
+        # (5) ¬hasPrefixLines(file) → ¬isValidCompat(file) → ¬isValidUnified(file) [from (1)]
+        if(mode=="compat" and not self.shBool(f"grep -ERq '^\\|' {diffFile}")):
+            with self.nestTest('Interpret this invalid compat diff as if it was in unified format'):
+                self.doTestInvalidDiff(diffFile, "unified", False, fileKey)
+        # (6) ¬isValidUnified(file) → ¬isValidCompat(file) [from (2)]
+        if(mode=="unified"):
+            with self.nestTest('Interpret this invalid unified diff as if it was in compat format'):
+                self.doTestInvalidDiff(diffFile, "compat", False, fileKey)
+        # (7) ¬hasUnprefixedHintfulFileComparison(file) → ¬isValidCompat(file) → ¬isValidHintful(file) [from (3)]
+        if(mode=="compat" and not self.shBool(f"grep -ERq '^diff --hintful ' {diffFile}")):
+            with self.nestTest('Interpret this invalid compat diff as if it was in hintful format'):
+                self.doTestInvalidDiff(diffFile, "hintful", False, fileKey)
+        # (8) ¬isValidHintful(file) → ¬isValidCompat(file) [from (4)]
+        if(mode=="hintful"):
+            with self.nestTest('Interpret this invalid hintful diff as if it was in compat format'):
+                self.doTestInvalidDiff(diffFile, "compat", False, fileKey)
 
     def doTestContentFiles(self, v1, v2):
         for mode in ['hintful', 'unified']:
@@ -465,9 +498,16 @@ class TestAll(unittest.TestCase):
         assert exitCode in [0, 1] # Do not count this assertion
         return {0: True, 1: False}[exitCode]
 
-    def hashFile(self, fileName):
-        with open(joinCwd(fileName),'rb') as file:
-            return hashlib.sha256(file.read()).hexdigest()
+    def hashFileOrDir(self, path):
+        if os_path_isfile(path):
+            with open(joinCwd(path),'rb') as file:
+                return hashlib.sha256(file.read()).hexdigest()
+        elif os_path_isdir(path):
+            with inDir(path):
+                ret=set()
+                for child in os_listdir():
+                    ret.add((child, self.hashFileOrDir(child)))
+                return ret
 
     def mapFiles(self, cmd, files):
         for filename in files:

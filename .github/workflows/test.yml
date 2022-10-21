@@ -17,8 +17,10 @@ jobs:
         registry: docker.pkg.github.com
         image_name: diff-format-tester
         context: docker/
-    - name: Run tests
-      run: ./script run-tests
+    - name: Run basic test suite
+      run: ./script run-basic-tests
+    - name: Run all tests
+      run: ./script run-all-tests
     - name: Lint scripts
       run: ./script lint-scripts
     - name: Check img/
