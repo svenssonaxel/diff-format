@@ -202,6 +202,30 @@ Test directories and what they focus on, files and what they test:
   - `51-o-b.unified.diff`:
     - Prefixed file comparisons are ignored
     - Same content as `49-o-b.invalid.hintful.diff`.
+  - `52-a-m.invalid.hintful.diff`:
+    - `---` line allowed only before first hunk
+    - Based on `05-a-m.compat.diff`.
+  - `53-a-m.invalid.hintful.diff`:
+    - `+++` line allowed only before first hunk
+    - Based on `52-a-m.invalid.hintful.diff`.
+  - `54-a-m.invalid.hintful.diff`:
+    - Extended header `similarity index` allowed only before first hunk
+    - Based on `52-a-m.invalid.hintful.diff`.
+  - `55-a-m.invalid.hintful.diff`:
+    - Extended header `rename from` allowed only before first hunk
+    - Based on `52-a-m.invalid.hintful.diff`.
+  - `56-a-m.invalid.hintful.diff`:
+    - Extended header `rename to` allowed only before first hunk
+    - Based on `52-a-m.invalid.hintful.diff`.
+  - `57-a-m.invalid.hintful.diff`:
+    - Extended header `index` allowed only before first hunk
+    - Based on `52-a-m.invalid.hintful.diff`.
+  - `58-a-m.invalid.hintful.diff`:
+    - Extended header `deleted file mode` allowed only before first hunk
+    - Based on `52-a-m.invalid.hintful.diff`.
+  - `59-a-m.invalid.hintful.diff`:
+    - Extended header `new file mode` allowed only before first hunk
+    - Based on `52-a-m.invalid.hintful.diff`.
 - `004/`:
   Binary files.
   - `01-a-b.hintful.diff`:

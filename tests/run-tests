@@ -2,7 +2,7 @@
 import contextlib, hashlib, os, re, sys, tempfile, threading, unittest
 
 runAllTests="RUNALLTESTS" in os.environ and os.environ['RUNALLTESTS']
-_totalNumberOfAssertions = 19642 if runAllTests else 5889
+_totalNumberOfAssertions = 19794 if runAllTests else 6041
 
 # A table of strings expected to be included in the error message when validating invalid diff files
 expectedErrorMessagesForInvalidFiles={
@@ -41,6 +41,14 @@ expectedErrorMessagesForInvalidFiles={
     '003/42-o-b.invalid.hintful.diff': ['[HDF31]', 'hunk header'],
     '003/43-o-b.invalid.hintful.diff': ['[HDF31]', 'content'],
     '003/49-o-b.invalid.hintful.diff': ['[HDF32]'],
+    '003/52-a-m.invalid.hintful.diff': ['[HDF21]', '---'],
+    '003/53-a-m.invalid.hintful.diff': ['[HDF21]', '+++'],
+    '003/54-a-m.invalid.hintful.diff': ['[HDF21]', 'similarity index'],
+    '003/55-a-m.invalid.hintful.diff': ['[HDF21]', 'rename from'],
+    '003/56-a-m.invalid.hintful.diff': ['[HDF21]', 'rename to'],
+    '003/57-a-m.invalid.hintful.diff': ['[HDF21]', 'index'],
+    '003/58-a-m.invalid.hintful.diff': ['[HDF21]', 'deleted file mode'],
+    '003/59-a-m.invalid.hintful.diff': ['[HDF21]', 'new file mode'],
 }
 
 def m(pattern, string):
