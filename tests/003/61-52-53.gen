@@ -1,0 +1,4 @@
+#!/usr/bin/env -S sed -rf
+
+# Replace line 10 with line 4
+4h; 10x

@@ -1,0 +1,5 @@
+#!/usr/bin/env -S sed -rf
+
+# Replace line 10
+10d;9a\
+deleted file mode 100644

@@ -87,6 +87,7 @@ def parseDiff(inputLines):
             continue
         linem = m(r'^(\|?)--- ([^\r]*)\r*\n$', line)
         if(linem):
+            if not betweenHeaderAndFirstHunk: die('[HDF21] --- line can only appear between file comparison header and first hunk')
             if linem[1]!=filePrefix: die('[HDF31] Prefix for --- line did not match previous line')
             line2 = nextOrDie(inputLines, '[HDF22] Expected a +++ line but got end of file')
             line2m = m(r'^(\|?)\+\+\+ ([^\r]*)\r*\n$', line2)
@@ -104,6 +105,7 @@ def parseDiff(inputLines):
             continue
         linem = m(r'^(\|?)similarity index ([0-9]+%)\r*\n$', line)
         if(linem):
+            if not betweenHeaderAndFirstHunk: die('[HDF21] similarity index line can only appear between file comparison header and first hunk')
             if linem[1]!=filePrefix: die('[HDF31] Prefix for similarity line did not match previous line')
             yield {
                 'op': 'similarity-index',
@@ -114,6 +116,7 @@ def parseDiff(inputLines):
             continue
         linem = m(r'^(\|?)rename from ([^\r]*)\r*\n$', line)
         if(linem):
+            if not betweenHeaderAndFirstHunk: die('[HDF21] rename from line can only appear between file comparison header and first hunk')
             if linem[1]!=filePrefix: die('[HDF31] Prefix for rename from line did not match previous line')
             line2 = nextOrDie(inputLines, '[HDF22] Expected "rename to" line but got end of file')
             line2m = m(r'^(\|?)rename to ([^\r]*)\r*\n$', line2)
@@ -133,6 +136,7 @@ def parseDiff(inputLines):
             die(f'[HDF21] Hunk content without header: {line}')
         linem = m(r'^(\|?)index ([0-9a-f]{7,})\.\.([0-9a-f]{7,})( +[0-7]{6})?\r*\n$', line)
         if(linem):
+            if not betweenHeaderAndFirstHunk: die('[HDF21] index line can only appear between file comparison header and first hunk')
             if linem[1]!=filePrefix: die('[HDF31] Prefix for index line did not match previous line')
             yield {
                 'op': 'index',
@@ -145,6 +149,7 @@ def parseDiff(inputLines):
             continue
         linem = m(r'^(\|?)(new|deleted) file mode ([^\r]*)\r*\n$', line)
         if(linem):
+            if not betweenHeaderAndFirstHunk: die(f'[HDF21] {linem[2]} file mode line can only appear between file comparison header and first hunk')
             if linem[1]!=filePrefix: die(f'[HDF31] Prefix for {linem[2]} file mode line did not match previous line')
             side={'deleted': 'left', 'new': 'right'}[linem[2]]
             yield {
