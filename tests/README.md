@@ -54,6 +54,9 @@ Test directories and what they focus on, files and what they test:
   - `22-a-b.invalid.hintful.diff`:
     - Random data in place of extended header.
     - Based on `07-a-b.hintful.diff`.
+  - `26-a-b.invalid.hintful.diff`:
+    - Equals sign (`=`) found in inactive snippet column.
+    - Based on `07-a-b.hintful.diff`.
 - `002/`:
   File-level operations and CR handling.
   - `a/`:
