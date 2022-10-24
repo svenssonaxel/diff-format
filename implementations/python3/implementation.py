@@ -7,15 +7,25 @@ def m(pattern, string):
     if not match:
         return None
     if(match.group(0) != string):
-        die(f'Pattern /{pattern}/ matched only part of string')
+        die(f'Pattern /{pattern}/ matched only part of string', None)
     ret = []
     for index in range((match.lastindex or 0)+1):
         ret.append(match.group(index))
     return ret
 
-def die(reason):
-    sys.stderr.write(reason+'\n')
-    sys.exit(1)
+def die(reason, lineNr):
+    if(type(lineNr)==int):
+        sys.stderr.write(f"On input line {lineNr}: {reason}\n")
+        sys.exit(1)
+    elif(type(lineNr)==list):
+        sys.stderr.write(f"On input lines {', '.join([str(x) for x in lineNr])}: {reason}\n")
+        sys.exit(1)
+    elif(lineNr==None):
+        sys.stderr.write(f"Possible implementatation bug.\n{reason}\n")
+        sys.exit(2)
+    else:
+        sys.stderr.write(f"Weird lineNr {repr(lineNr)}\n{reason}\n")
+        sys.exit(2)
 
 def getInputLines():
     while True:
@@ -24,22 +34,24 @@ def getInputLines():
             break
         yield line
 
-def nextOrDie(inputGenerator, message='Unexpected stop of generator'):
+def nextOrDie(inputGenerator, message, lineNr):
     try:
         return next(inputGenerator)
     except StopIteration:
-        die(message)
+        die(message, lineNr)
 
 def parseDiff(inputLines):
     filePrefix=None
     fileFormat=None
     fileKey=None
     betweenHeaderAndFirstHunk=False
-    for line in inputLines:
+    maxLineNr=0
+    for [lineNr, line] in inputLines:
+        maxLineNr=lineNr
         linem = m(r'^(\|?)@@ +-([0-9]+)(,[0-9]+)? +(\([0-9]+\) +)?\+([0-9]+)(,[0-9]+)? +@@(.*)\n$', line)
         if(linem):
             prefix = linem[1]
-            if prefix!=filePrefix: die('[HDF31] Hunk header prefix did not match previous line')
+            if prefix!=filePrefix: die('[HDF31] Hunk header prefix did not match previous line', lineNr)
             leftstartlineraw = linem[2]
             leftlinecountraw = linem[3]
             hunklinecountraw = linem[4]
@@ -70,6 +82,7 @@ def parseDiff(inputLines):
                 'rightlinecount': rightlinecount,
                 'hunklinecount': hunklinecount,
                 'hunktype': hunktype,
+                'lineNr': lineNr,
             }
             yield hunkheader
             if(hunktype=='hintful'):
@@ -80,57 +93,62 @@ def parseDiff(inputLines):
             continue
         linem = m(r'^(\|?)--- ([^\r]*)\r*\n$', line)
         if(linem):
-            if not betweenHeaderAndFirstHunk: die('[HDF21] --- line can only appear between file comparison header and first hunk')
-            if linem[1]!=filePrefix: die('[HDF31] Prefix for --- line did not match previous line')
-            line2 = nextOrDie(inputLines, '[HDF22] Expected a +++ line but got end of file')
+            if not betweenHeaderAndFirstHunk: die('[HDF21] `---` line can only appear between file comparison header and first hunk', lineNr)
+            if linem[1]!=filePrefix: die('[HDF31] Prefix for `---` line did not match previous line', lineNr)
+            [lineNr2, line2] = nextOrDie(inputLines, '[HDF22] Expected a `+++` line but got end of file', lineNr+1)
+            maxLineNr=lineNr2
             line2m = m(r'^(\|?)\+\+\+ ([^\r]*)\r*\n$', line2)
             if not line2 or not line2m:
-                die('[HDF22] Expected a +++ line')
+                die('[HDF22] Expected a `+++` line', lineNr2)
             if not (linem[1]==line2m[1]):
-                die('[HDF31] Prefix for +++ line did not match previous line')
+                die('[HDF31] Prefix for `+++` line did not match previous line', lineNr2)
             yield {
                 'op': 'labels',
                 'prefix': linem[1],
                 'filekey': fileKey,
                 'left': linem[2],
                 'right': line2m[2],
+                'lineNr': lineNr,
                 }
             continue
         linem = m(r'^(\|?)similarity index ([0-9]+%)\r*\n$', line)
         if(linem):
-            if not betweenHeaderAndFirstHunk: die('[HDF21] similarity index line can only appear between file comparison header and first hunk')
-            if linem[1]!=filePrefix: die('[HDF31] Prefix for similarity line did not match previous line')
+            if not betweenHeaderAndFirstHunk: die('[HDF21] `similarity index` line can only appear between file comparison header and first hunk', lineNr)
+            if linem[1]!=filePrefix: die('[HDF31] Prefix for `similarity` line did not match previous line', lineNr)
             yield {
                 'op': 'similarity-index',
                 'prefix': linem[1],
                 'filekey': fileKey,
                 'similarity-index': linem[2],
+                'lineNr': lineNr,
                 }
             continue
         linem = m(r'^(\|?)rename from ([^\r]*)\r*\n$', line)
         if(linem):
-            if not betweenHeaderAndFirstHunk: die('[HDF21] rename from line can only appear between file comparison header and first hunk')
-            if linem[1]!=filePrefix: die('[HDF31] Prefix for rename from line did not match previous line')
-            line2 = nextOrDie(inputLines, '[HDF22] Expected "rename to" line but got end of file')
+            if not betweenHeaderAndFirstHunk: die('[HDF21] `rename from` line can only appear between file comparison header and first hunk', lineNr)
+            if linem[1]!=filePrefix: die('[HDF31] Prefix for `rename from` line did not match previous line', lineNr)
+            [lineNr2, line2] = nextOrDie(inputLines, '[HDF22] Expected `rename to` line but got end of file', lineNr+1)
+            maxLineNr=lineNr2
             line2m = m(r'^(\|?)rename to ([^\r]*)\r*\n$', line2)
             if not line2 or not line2m:
-                die('[HDF22] Expected "rename to" line')
+                die('[HDF22] Expected `rename to` line', lineNr2)
             if not (linem[1]==line2m[1]):
-                die('[HDF31] Prefix for "rename to" line must match that of "rename from" line')
+                die('[HDF31] Prefix for `rename to` line must match that of `rename from` line', lineNr2)
             yield {
                 'op': 'rename',
                 'prefix': linem[1],
                 'filekey': fileKey,
                 'left': linem[2],
                 'right': line2m[2],
+                'lineNr': lineNr,
                 }
             continue
         if(m(r'^\|?[-+ _#<>].*\n$', line)):
-            die(f'[HDF21] Hunk content without header: {line}')
+            die(f'[HDF21] Hunk content without header: {line}', lineNr)
         linem = m(r'^(\|?)index ([0-9a-f]{7,})\.\.([0-9a-f]{7,})( +[0-7]{6})?\r*\n$', line)
         if(linem):
-            if not betweenHeaderAndFirstHunk: die('[HDF21] index line can only appear between file comparison header and first hunk')
-            if linem[1]!=filePrefix: die('[HDF31] Prefix for index line did not match previous line')
+            if not betweenHeaderAndFirstHunk: die('[HDF21] `index` line can only appear between file comparison header and first hunk', lineNr)
+            if linem[1]!=filePrefix: die('[HDF31] Prefix for `index` line did not match previous line', lineNr)
             yield {
                 'op': 'index',
                 'prefix': linem[1],
@@ -138,18 +156,20 @@ def parseDiff(inputLines):
                 'left': linem[2],
                 'right': linem[3],
                 'mode': linem[4] if len(linem)==5 else None,
+                'lineNr': lineNr,
                 }
             continue
         linem = m(r'^(\|?)(new|deleted) file mode ([^\r]*)\r*\n$', line)
         if(linem):
-            if not betweenHeaderAndFirstHunk: die(f'[HDF21] {linem[2]} file mode line can only appear between file comparison header and first hunk')
-            if linem[1]!=filePrefix: die(f'[HDF31] Prefix for {linem[2]} file mode line did not match previous line')
+            if not betweenHeaderAndFirstHunk: die(f'[HDF21] `{linem[2]} file mode` line can only appear between file comparison header and first hunk', lineNr)
+            if linem[1]!=filePrefix: die(f'[HDF31] Prefix for `{linem[2]} file mode` line did not match previous line', lineNr)
             side={'deleted': 'left', 'new': 'right'}[linem[2]]
             yield {
                 'op': f'{side}filemode',
                 'prefix': linem[1],
                 'filekey': fileKey,
                 'mode': linem[3],
+                'lineNr': lineNr,
             }
             continue
         linem = m(r'^(\|?)diff --(git|hintful) ([^ ]+) +([^ \r]+)\r*\n$', line)
@@ -159,6 +179,7 @@ def parseDiff(inputLines):
                     'op': 'endfile',
                     'prefix': filePrefix,
                     'filekey': fileKey,
+                    'lineNr': lineNr-1,
                 }
             filePrefix=linem[1]
             fileFormat=linem[2]
@@ -170,51 +191,56 @@ def parseDiff(inputLines):
                 'fileformat': fileFormat,
                 'leftfile': linem[3],
                 'rightfile': linem[4],
+                'lineNr': lineNr,
             }
             betweenHeaderAndFirstHunk=True
             continue
         if(betweenHeaderAndFirstHunk):
-            die(f"[HDF22] Cannot parse extended header line '{line}'")
+            die(f"[HDF22] Cannot parse extended header line '{line}'", lineNr)
         else:
-            die(f"[HDF21] Cannot parse line '{line}'")
+            die(f"[HDF21] Cannot parse line '{line}'", lineNr)
     if(filePrefix!=None):
         yield {
             'op': 'endfile',
             'prefix': filePrefix,
             'filekey': fileKey,
+            'lineNr': maxLineNr,
         }
 
 def glueNonewline(inputLines):
     prevLine = ''
+    lineNr = 0
     for line in inputLines:
+        lineNr += 1
         linem = m(r'^(\|?)\\.*\n$', line)
         if(linem):
             prevLinem = m(r'^(\|?).*\n$', prevLine)
             if(prevLinem[1]!=linem[1]):
-                die(r'[HDF31] Prefix before "\ No newline at end of file" must match the previous line')
-            yield prevLine + line
+                die(r'[HDF31] Prefix before `\ No newline at end of file` must match the previous line', lineNr)
+            yield [lineNr-1, prevLine + line]
             prevLine = ''
         else:
             if prevLine:
-                yield prevLine
+                yield [lineNr-1, prevLine]
             prevLine = line
     if prevLine:
-        yield prevLine
+        yield [lineNr, prevLine]
 
 def parseUnifiedHunk(header, inputLines, extraFields):
     leftlinecount = header['leftlinecount']
     rightlinecount = header['rightlinecount']
     leftcontent = ''
     rightcontent = ''
+    lineNr=header['lineNr']
     while(0 < leftlinecount or 0 < rightlinecount):
         if(leftlinecount < 0 or rightlinecount < 0):
-            die('[HDF11] Corrupt hunk line count')
-        line = nextOrDie(inputLines, '[HDF11] End of file inside unified hunk')
+            die('[HDF11] Corrupt hunk line count', [header['lineNr'], lineNr])
+        [lineNr, line] = nextOrDie(inputLines, '[HDF11] End of file inside unified hunk', lineNr+1)
         linem = m(r'^(\|?)([-+ ])(.*)\n\|?\\ .*\n$', line) or m(r'^(\|?)([-+ ])(.*\n)$', line)
         if linem:
             prefix = linem[1]
             if prefix!=header['prefix']:
-                die(f'[HDF31] Expected prefix for unified content line to match previous line')
+                die(f'[HDF31] Expected prefix for unified content line to match previous line', lineNr)
             opchar = linem[2]
             content = linem[3]
             yield {
@@ -223,6 +249,7 @@ def parseUnifiedHunk(header, inputLines, extraFields):
                 'content': content,
                 'leftsnippetname': '',
                 'rightsnippetname': '',
+                'lineNr': lineNr,
                 **extraFields,
             }
             if(opchar in '- '):
@@ -232,12 +259,13 @@ def parseUnifiedHunk(header, inputLines, extraFields):
                 rightlinecount-=1
                 rightcontent+=content
             continue
-        die(f'[HDF12] Corrupt hunk, contained line: {line}')
+        die(f"[HDF12] Corrupt hunk, contained line: '{line}'", lineNr)
     yield {
         'op': 'endhunk',
         'prefix': header['prefix'],
         'leftcontent': leftcontent,
         'rightcontent': rightcontent,
+        'lineNr': lineNr,
         **extraFields,
     }
 
@@ -250,22 +278,23 @@ def parseHintfulHunk(header, inputLines, extraFields):
         'leftsnippetcontent': '',
         'rightsnippetcontent': '',
     }
+    lineNr=header['lineNr']
     for _ in range(header['hunklinecount']):
-        line = nextOrDie(inputLines, '[HDF11] End of file inside hintful hunk')
+        [lineNr, line] = nextOrDie(inputLines, '[HDF11] End of file inside hintful hunk', lineNr+1)
         if m(r'^(\|?)([-+ _#])(.*)\n\|?\\ .*\n$', line):
-            die('[HDF17] Encountered `\ No newline at end of file` syntax in hintful hunk')
+            die('[HDF17] Encountered `\ No newline at end of file` syntax in hintful hunk', lineNr+1)
         linem = m(r'^(\|?)([-+ _#])(.*)([$\\])(\r*\n)$', line)
         if(linem):
             prefix = linem[1]
             if prefix!=header['prefix']:
-                die(f'[HDF31] Expected prefix for hintful content line to match previous line')
+                die(f'[HDF31] Expected prefix for hintful content line to match previous line', lineNr)
             opchar = linem[2]
             content = linem[3]
             nlmarker = linem[4]
             crlf = linem[5]
             if(nlmarker=='$'):
                 if(content.endswith('\r')):
-                    die('[HDF16] CR character not allowed before $ newline marker')
+                    die('[HDF16] CR character not allowed before $ newline marker', lineNr)
                 content += crlf
             op = {'-': 'leftcontent', '+': 'rightcontent', ' ': 'bothcontent', '_': 'bothlowprioritycontent', '#': 'ignorecontent'}[opchar]
             yield {
@@ -274,20 +303,21 @@ def parseHintfulHunk(header, inputLines, extraFields):
                 'content': content,
                 'leftsnippetname': state['leftsnippetname'],
                 'rightsnippetname': state['rightsnippetname'],
+                'lineNr': lineNr,
                 **extraFields,
             }
             for side in ['left', 'right']:
                 if(op in [f'{side}content', 'bothcontent', 'bothlowprioritycontent']):
                     target = f'{side}snippetcontent' if state[f'{side}snippetname'] else f'{side}content'
                     if(state[target].endswith('\r') and m(r'^\r*\n', content)):
-                        die(r'[HDF16] \r*\n sequence must not be split.')
+                        die(r'[HDF16] `\r*\n` sequence must not be split.', lineNr)
                     state[target]+=content
             continue
         linem = m(r'^(\|?)([<>])([^\r]*)\r*\n$', line)
         if(linem):
             prefix = linem[1]
             if prefix!=header['prefix']:
-                die(f'[HDF31] Expected prefix for hintful snippet line to match previous line')
+                die(f'[HDF31] Expected prefix for hintful snippet line to match previous line', lineNr)
             opchar = linem[2]
             name = linem[3]
             op = {'<': 'leftsnippet', '>': 'rightsnippet'}[opchar]
@@ -299,6 +329,7 @@ def parseHintfulHunk(header, inputLines, extraFields):
                             'prefix': prefix,
                             'name': state[f'{side}snippetname'],
                             'content': state[f'{side}snippetcontent'],
+                            'lineNr': lineNr,
                             **extraFields,
                         }
                     state[f'{side}snippetname']=name
@@ -307,23 +338,25 @@ def parseHintfulHunk(header, inputLines, extraFields):
                 'op': op,
                 'prefix': prefix,
                 'name': name,
+                'lineNr': lineNr,
                 **extraFields,
             }
             continue
-        die(f'[HDF12] Corrupt hunk: Strange line: {line}')
+        die(f"[HDF12] Corrupt hunk: Strange line: '{line}'", lineNr)
     if(state['leftsnippetname'] or state['rightsnippetname']):
-        die('[HDF13] Hunk ended inside named snippet')
+        die('[HDF13] Hunk ended inside named snippet', lineNr)
     yield {
         'op': 'endhunk',
         'prefix': header['prefix'],
         **extraFields,
         'leftcontent': state['leftcontent'],
         'rightcontent': state['rightcontent'],
+        'lineNr': lineNr,
     }
 
 def formatDiffHelper(inputObjs, task="raw"):
     if(task not in ["raw", "highlight", "visualize"]):
-        die(f"Bad task {task} in formatDiffHelper")
+        die(f"Bad task {task} in formatDiffHelper", None)
     def interpretAndColorize(inputObjs):
         hunktype=None
         seenPrefixedHunks=set()
@@ -344,10 +377,10 @@ def formatDiffHelper(inputObjs, task="raw"):
                     'bg': None,
                     'bg2': None,
                 }
-            if(fg not in palette): die(f'Illegal fg color {fg}')
-            if(bg not in palette): die(f'Illegal bg color {bg}')
-            if(bg2 not in palette): die(f'Illegal bg2 color {bg2}')
-            if(bold not in [True, False]): die(f'Illegal bold value {bold}')
+            if(fg not in palette): die(f'Illegal fg color {fg}', None)
+            if(bg not in palette): die(f'Illegal bg color {bg}', None)
+            if(bg2 not in palette): die(f'Illegal bg2 color {bg2}', None)
+            if(bold not in [True, False]): die(f'Illegal bold value {bold}', None)
             return {
                 'op': 'colorize',
                 'fg': fg,
@@ -452,7 +485,7 @@ def formatDiffHelper(inputObjs, task="raw"):
                                 '\\\n',
                             ]
                 else:
-                    die('Unexpected hunk type')
+                    die('Unexpected hunk type', None)
             elif(op in ['leftsnippet', 'rightsnippet']):
                 if(op=="leftsnippet"):
                     leftsnippetname=obj['name']
@@ -533,7 +566,7 @@ def formatDiffHelper(inputObjs, task="raw"):
                     f"rename to {obj['right']}\n",
                 ]
             else:
-                die(f'formatDiffHelper cannot process operation {op}')
+                die(f'formatDiffHelper cannot process operation {op}', None)
     def separateNewlines(inputObjs):
         for obj in inputObjs:
             if(type(obj)==str and '\n' in obj):
@@ -572,7 +605,7 @@ def formatDiffHelper(inputObjs, task="raw"):
         elif(prevObj):
             yield prevObj
         if(deferred):
-            die('processNewlineDeferment ended before inserting deferred newlines')
+            die('processNewlineDeferment ended before inserting deferred newlines', None)
     def processColorizationEndAtNewline(inputObjs):
         for obj in inputObjs:
             if(obj=='\n' and task!="raw"):
@@ -618,11 +651,11 @@ def removeSnippets(inputObjs):
         elif(op=='endhunk' and
            (leftsnippetname!='' or
             rightsnippetname!='')):
-            die('[HDF13] Hunk ended inside named snippet')
+            die('[HDF13] Hunk ended inside named snippet', obj['lineNr'])
         elif(op in ['beginfile', 'endfile', 'index', 'labels', 'leftfilemode', 'rightfilemode', 'similarity-index', 'rename', 'beginhunk', 'endhunk']):
             yield obj
         else:
-            die(f'removeSnippets cannot process operation {op}')
+            die(f'removeSnippets cannot process operation {op}', None)
 
 def convertUnprefixedHunksToUnified(inputObjs):
     state={
@@ -637,7 +670,7 @@ def convertUnprefixedHunksToUnified(inputObjs):
         error2 = (state['leftended'] and (state['leftcontent'] or state['bothcontent']))
         error3 = (state['rightended'] and (state['rightcontent'] or state['bothcontent']))
         if (error1 or error2 or error3):
-            die('Broken invariant in convertUnprefixedHunksToUnified')
+            die('Broken invariant in convertUnprefixedHunksToUnified', None)
     for obj in inputObjs:
         if(obj['prefix']):
             yield obj
@@ -698,7 +731,7 @@ def convertUnprefixedHunksToUnified(inputObjs):
         elif(op in ['index', 'labels', 'leftfilemode', 'rightfilemode', 'similarity-index', 'rename']):
             yield obj
         else:
-            die(f'convertUnprefixedHunksToUnified cannot process operation {op}')
+            die(f'convertUnprefixedHunksToUnified cannot process operation {op}', None)
 
 def switchleftright(text):
     if(text.startswith('left')): return 'right'+text[4:]
@@ -724,7 +757,7 @@ def validateSnippets(inputObjs):
             name=obj['name']
             content=obj['content']
             if(name in snippetcache and snippetcache[name]!=content):
-                die(f"[HDF15] Content of snippet '{name}' did not match previous use")
+                die(f"[HDF15] Content of snippet '{name}' did not match previous use", obj['lineNr'])
             snippetcache[name]=content
         yield obj
 
@@ -735,9 +768,9 @@ def groupHunks(inputObjs):
             contents=[]
             endHunk=None
             while True:
-                contentObj=nextOrDie(inputObjs)
+                contentObj=nextOrDie(inputObjs, 'Unexpected generator end in groupHunks', None)
                 if(contentObj['prefix']!=beginHunk['prefix']):
-                    die('[HDF31] Prefix mismatch')
+                    die('[HDF31] Prefix mismatch', contentObj['lineNr'])
                 if(contentObj['op']=='endhunk'):
                     endHunk=contentObj
                     break
@@ -766,9 +799,9 @@ def groupFiles(inputObjs):
             beginFile=obj
             contents=[]
             while True:
-                contentObj=nextOrDie(inputObjs)
+                contentObj=nextOrDie(inputObjs, 'Unexpected generator end in groupFiles', None)
                 if(contentObj['prefix']!=beginFile['prefix']):
-                    die('[HDF31] Prefix mismatch')
+                    die('[HDF31] Prefix mismatch', contentObj['lineNr'])
                 if(contentObj['op']=='endfile'):
                     break
                 contents.append(contentObj)
@@ -793,9 +826,9 @@ def ungroupFiles(inputObjs):
 def duplicateFilesForCompat(inputObjs):
     for obj in inputObjs:
         if(obj['op']!='file'):
-            die(f'duplicateFilesForCompat expects only file objects, got unexpected {obj["op"]}')
+            die(f'duplicateFilesForCompat expects only file objects, got unexpected {obj["op"]}', None)
         if(obj['prefix']):
-            die('duplicateFilesForCompat expects only unprefixed files')
+            die('duplicateFilesForCompat expects only unprefixed files', None)
         yield {**obj, 'prefix': '|', 'fileformat': 'hintful'}
         yield {**obj, 'fileformat': 'git'}
 
@@ -839,36 +872,44 @@ def validateFilesAndHunks(inputObjs):
             if k in fileCache:
                 oldObj=fileCache[k]
                 if not oldObj['prefix'] or obj['prefix']:
-                    die('[HDF33] Duplicate files can only be first a prefixed and then an unprefixed.')
+                    die('[HDF33] Duplicate files can only be first a prefixed and then an unprefixed.', [oldObj['lineNr'], obj['lineNr']])
             fileCache[k]=obj
         if(op=='index'):
             k=obj['filekey']
             if k in indexCache:
                 oldObj=indexCache[k]
                 if (oldObj['left'], oldObj['right'], oldObj['mode'])!=(obj['left'], obj['right'], obj['mode']):
-                    die('[HDF35] Index line mismatch between prefixed and unprefixed file')
+                    die('[HDF35] `index` line mismatch between prefixed and unprefixed file', [oldObj['lineNr'], obj['lineNr']])
             indexCache[k]=obj
         if(op=='labels'):
             k=obj['filekey']
             if k in labelsCache:
                 oldObj=labelsCache[k]
-                if (oldObj['left'], oldObj['right'])!=(obj['left'], obj['right']):
-                    die('[HDF35] Labels mismatch between prefixed and unprefixed file')
+                if oldObj['left']!=obj['left']:
+                    die('[HDF35] `---` line mismatch between prefixed and unprefixed file', [oldObj['lineNr'], obj['lineNr']])
+                if oldObj['right']!=obj['right']:
+                    die('[HDF35] `+++` line mismatch between prefixed and unprefixed file', [oldObj['lineNr']+1, obj['lineNr']+1])
             labelsCache[k]=obj
         if(op=='beginhunk'):
+            for side in ['left', 'right']:
+                if(not state[f'{side}allowed']):
+                    # If a hunk has ended without a newline on either side, the hunk must be positioned at end of file for that side.
+                    # Since all further content on the other side is necessarily changed, the hunk must be positioned at end of file for both sides.
+                    # Hence, it must be the last hunk in the current file comparison.
+                    die(f'[HDF18] New hunk following a hunk ending without newline on {side} side', obj['lineNr'])
             if(not ((obj['fileformat']=='hintful' and (obj['hunktype']=='hintful' or obj['hunktype']=='unified')) or
                     (obj['fileformat']=='git' and obj['hunktype']=='unified'))):
-                die(f"[HDF23] Illegal combination of fileformat={obj['fileformat']}, hunktype={obj['hunktype']}")
+                die(f"[HDF23] Illegal combination of fileformat={obj['fileformat']}, hunktype={obj['hunktype']}", obj['lineNr'])
             k=obj['hunkkey']
             if k in hunkCache:
                 oldObj=hunkCache[k]
                 if not oldObj['prefix'] or obj['prefix']:
-                    die('Duplicate hunks can only be first a prefixed and then an unprefixed.')
+                    die('Duplicate hunks can only be first a prefixed and then an unprefixed.', [oldObj['lineNr'], obj['lineNr']])
             hunkCache[k]=obj
             if lastHunk and lastHunk['filekey']==obj['filekey'] and lastHunk['prefix']==obj['prefix']:
                 for side in ['left', 'right']:
                     if not lastHunk[f'{side}startline']+lastHunk[f'{side}linecount']<=obj[f'{side}startline']:
-                        die(f'[HDF24] Hunk begins on {side} side before the previous one ended')
+                        die(f'[HDF24] Hunk begins on {side} side before the previous one ended', obj['lineNr'])
             lastHunk=obj
         if(op=='endhunk'):
             k=obj['hunkkey']
@@ -876,35 +917,34 @@ def validateFilesAndHunks(inputObjs):
             for side in ['left', 'right']:
                 if k in endHunkCache:
                     if endHunkCache[k][f'{side}content']!=obj[f'{side}content']:
-                        die(f'[HDF37] Content mismatch on {side} side in duplicate hunk')
+                        die(f'[HDF37] Content mismatch on {side} side in duplicate hunk', obj['lineNr'])
                 content=obj[f'{side}content']
                 nonl=content and not content.endswith('\n')
-                if(content and not state[f'{side}allowed']):
-                    die(f'[HDF18] Content on {side} side after a hunk ending without newline')
                 if(nonl):
                     state[f'{side}allowed']=False
                 linecount = len(content.split('\n')) - (0 if nonl else 1)
                 if(linecount!=beginhunk[f'{side}linecount']):
-                    die(f"[HDF11] Line count on {side} side declared as {beginhunk[f'{side}linecount']} but is really {linecount}")
+                    die(f"[HDF11] Line count on {side} side declared as {beginhunk[f'{side}linecount']} but is really {linecount}", [beginhunk['lineNr'], obj['lineNr']])
             endHunkCache[k]=obj
         yield obj
     for fileKey in fileCache:
         if(fileCache[fileKey]['prefix']):
-            die('[HDF32] Prefixed file comparison not followed by unprefixed file comparison')
+            die('[HDF32] Prefixed file comparison not followed by unprefixed file comparison', fileCache[fileKey]['lineNr'])
     for hunkKey in hunkCache:
         if(hunkCache[hunkKey]['prefix']):
-            die('[HDF36] Prefixed hunk not followed by unprefixed hunk')
+            die('[HDF36] Prefixed hunk not followed by unprefixed hunk', hunkCache[hunkKey]['lineNr'])
     for fileKey in indexCache:
         if(indexCache[fileKey]['prefix']):
-            die('[HDF34] Index line present for prefixed file but missing for unprefixed file')
+            die('[HDF34] `index` line present for prefixed file but missing for unprefixed file', [indexCache[fileKey]['lineNr'], fileCache[fileKey]['lineNr']])
     for fileKey in labelsCache:
         if(labelsCache[fileKey]['prefix']):
-            die('[HDF34] Labels line present for prefixed file but missing for unprefixed file')
+            die('[HDF34] `---` and `+++` lines present for prefixed file but missing for unprefixed file',
+                [labelsCache[fileKey]['lineNr'], labelsCache[fileKey]['lineNr']+1, fileCache[fileKey]['lineNr']])
 
 def assertNoUnprefixedHintfulFileComparisons(inputObjs, msg):
     for obj in inputObjs:
         if(obj['op']=='beginfile' and not obj['prefix'] and obj['fileformat']=='hintful'):
-            die(msg)
+            die(msg, obj['lineNr'])
         yield obj
 def assertNoUnprefixedHintfulFileComparisonsInCompat(inputObjs):
     yield from assertNoUnprefixedHintfulFileComparisons(inputObjs, '[HDF41] Unexpected unprefixed hintful file comparison in compat diff file')
@@ -923,7 +963,7 @@ def applyPrefixedFiles(inputObjs):
     for obj in inputObjs:
         op=obj['op']
         if not op=='file':
-            die('Weird object in applyPrefixedFiles')
+            die('Weird object in applyPrefixedFiles', None)
         fileKey=(obj['leftfile'], obj['rightfile'])
         if(obj['prefix']):
             fileCache[fileKey]=obj
@@ -936,13 +976,13 @@ def applyPrefixedFiles(inputObjs):
                 op2=hunkObj['op']
                 if(op2=='hunk'): hunkCache[hunkKey(hunkObj)]=hunkObj
                 elif(op2 in ['index', 'labels']): pass
-                else: die(f'Unexpected op {op2} in applyPrefixedFiles')
+                else: die(f'Unexpected op {op2} in applyPrefixedFiles', None)
             newContents=[]
             for hunkObj in oldFile['contents']:
                 op2=hunkObj['op']
                 if(op2=='hunk' and hunkKey(hunkObj) in hunkCache): newContents.append(hunkCache[hunkKey(hunkObj)])
                 elif(op2 in ['index', 'hunk', 'labels']): newContents.append(hunkObj)
-                else: die(f'Unexpected op {op2} in applyPrefixedFiles')
+                else: die(f'Unexpected op {op2} in applyPrefixedFiles', None)
             yield {
                 **oldFile,
                 'fileformat': appliedFile['fileformat'],
