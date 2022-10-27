@@ -1,7 +1,7 @@
 diff --hintful a/file.py b/file.py
 --- a/file.py
 +++ b/file.py
-@@ -1,4 (35) +1,4 @@
+@@ -1,4 (34) +1,4 @@
 >Add enclosing if block
 +if True:$
 +    \
@@ -30,8 +30,7 @@ diff --hintful a/file.py b/file.py
 -a\
 +b\
   in [1,$
-               2\
- ]:$
+               2]:$
          print(\
 -a\
 +b\

@@ -1,10 +1,10 @@
 #!/usr/bin/env -S sed -rf
 
-# Save lines 1-27
-1,27H;
+# Save lines 1-26
+1,26H;
 
 # Change the file name on line 1
 1s/luhn.test.js/nonexistent-file.js/g
 
-# After line 27, print the original lines
-27{p;z;x;s/^\n//}
+# After line 26, print the original lines
+26{p;z;x;s/^\n//}
