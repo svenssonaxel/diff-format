@@ -14,7 +14,7 @@ index 2c10da7..3d82968 100644
  add-eofeol-content\
 +$
 diff --hintful a/breakout-attempt b/breakout-attempt
-index cb38e1b..17d589d 100644
+index cb38e1b..89c828c 100644
 --- a/breakout-attempt
 +++ b/breakout-attempt
 @@ -3,6 8\ +3,6 @@ content
@@ -25,7 +25,7 @@ index cb38e1b..17d589d 100644
 +++ b/breakout-attempt$
  @@ -1,4 +1,4 @@$
 -abcdefghij$
-+jihgfedcba$
++jihgfedcba<unknown>$
 diff --hintful a/changed-without-eofeol b/changed-without-eofeol
 index 8798b37..9ee0c90 100644
 --- a/changed-without-eofeol
