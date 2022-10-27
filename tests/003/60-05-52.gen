@@ -1,10 +1,10 @@
 #!/usr/bin/env -S sed -rf
 
-# Delete lines 1-22
-1,22d
+# Delete lines 1-21
+1,21d
 
-# Copy line 25 to after line 31
-25H; 31{p;z;x;s/^\n//}
+# Copy line 24 to after line 30
+24H; 30{p;z;x;s/^\n//}
 
-# Delete lines 41-end
-41,$d
+# Delete lines 40-end
+40,$d

@@ -7,7 +7,7 @@
 | const luhn = require('./luhn.js');
 | 
 | const testCases = [
-|@@ -13,5 17\ +12,7 @@ const testCases = [
+|@@ -13,5 16\ +12,7 @@ const testCases = [
 | ];$
 | $
 | for(const {str, result} of testCases){$
@@ -16,8 +16,7 @@
 |+    \
 |-assert\
 |+expect\
-| (\
-| luhn.check(str)\
+| (luhn.check(str)\
 |-==\
 |+).toBe(\
 | result\
@@ -34,7 +33,7 @@
 | const luhn = require('./luhn.js');
 | 
 | const testCases = [
-|@@ -13,5 17\ +12,7 @@ const testCases = [
+|@@ -13,5 16\ +12,7 @@ const testCases = [
 | ];$
 | $
 | for(const {str, result} of testCases){$
@@ -43,8 +42,7 @@
 |+    \
 |-assert\
 |+expect\
-| (\
-| luhn.check(str)\
+| (luhn.check(str)\
 |-==\
 |+).toBe(\
 | result\
