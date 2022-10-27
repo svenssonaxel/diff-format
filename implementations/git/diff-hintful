@@ -82,8 +82,6 @@ fi
     s/<endless>/\\/;
     s/(<CR>)*\$\n/\$\1\n/g;
     s/<CR>/\r/g;
-    s/<lt>/</g;
-    s/<gt>/>/g;
 ' | sed '/^$/d' > hintful.diff
 
 while grep -Fa '<unknown>' hintful.diff >/dev/null; do
@@ -91,5 +89,6 @@ while grep -Fa '<unknown>' hintful.diff >/dev/null; do
     count=$(<hintful.diff sed -n -r "$line"',/^[^-+ ]/p' | grep -Eac '^[-+ ]')
     sed -ri "1,$line s/<unknown>/$count/" hintful.diff
 done
+sed -ri 's/<lt>/</g;s/<gt>/>/g;' hintful.diff
 cat hintful.diff
 exit $ec
