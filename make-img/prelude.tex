@@ -4,30 +4,27 @@
 \usepackage{xcolor}
 \pagecolor{white}
 %                                      CIE: | Lightness | Chroma | Hue     |
+\definecolor{stdbg}        {HTML}{ffffff} % |      100% |      0 | -       |
+\definecolor{stdfg}        {HTML}{000000} % |        0% |      0 | -       |
 \definecolor{red}          {HTML}{d10000} % |      7/16 |    max | red     |
 \definecolor{green}        {HTML}{007800} % |      7/16 |    max | green   |
-\definecolor{yellow}       {HTML}{6b6b00} % |      7/16 |    max | yellow  |
-\definecolor{blue}         {HTML}{683efe} % |      7/16 |    max | blue    |
 \definecolor{magenta}      {HTML}{b800b8} % |      7/16 |    max | magenta |
-\definecolor{grey}         {HTML}{676767} % |      7/16 |      0 | grey    |
+\definecolor{grey}         {HTML}{676767} % |      7/16 |      0 | -       |
 \definecolor{lightred}     {HTML}{fea088} % |     12/16 |    max | red     |
 \definecolor{lightgreen}   {HTML}{00d600} % |     12/16 |    max | green   |
-\definecolor{lightyellow}  {HTML}{bebe00} % |     12/16 |    max | yellow  |
-\definecolor{lightblue}    {HTML}{c8a9fe} % |     12/16 |    max | blue    |
 \definecolor{lightmagenta} {HTML}{fe90f9} % |     12/16 |    max | magenta |
-\definecolor{lightgrey}    {HTML}{c9c9c9} % |     13/16 |      0 | grey    |
+\definecolor{lightgrey}    {HTML}{c9c9c9} % |     13/16 |      0 | -       |
 
-% Length used for \bg and \twobg below
+% Length used for \bg below
 \newlength{\tmpWd}
 
 % Commands used in latex-implementation.py
-\newcommand\Bar{\kern-.08pt\rule[-\dp\strutbox]{.16pt}{\baselineskip}}
+\newcommand\Bar{\rule[-\dp\strutbox]{.7pt}{\baselineskip}}
 \newcommand\bg[2]{\strut{\settowidth{\tmpWd}{#2\kern.01pt}{\rlap{\color{#1}{\rule[-\dp\strutbox]{\tmpWd}{\dimexpr\ht\strutbox+\dp\strutbox}}}}#2}}
 \newcommand\bold[1]{{\textbf{#1}}}
 \newcommand\fg[2]{{\color{#1}#2}}
 \newcommand\nl{\par}
 \newcommand\spc{{\strut\space\strut}}
-\newcommand\twobg[3]{\strut{\settowidth{\tmpWd}{#3\kern.01pt}{\rlap{\color{#1}{\rule[-\dp\strutbox]{\tmpWd}{\dimexpr\ht\strutbox+\dp\strutbox}}}}{\rlap{\color{#2}{\rule[-\dp\strutbox]{\tmpWd}{\dp\strutbox}}}}#3}}
 
 % Style
 \usepackage{courierten}

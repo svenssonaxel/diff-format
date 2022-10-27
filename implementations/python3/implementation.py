@@ -362,31 +362,31 @@ def formatDiffHelper(inputObjs, task="raw"):
         seenPrefixedHunks=set()
         suppressed=False
         fileKey=None
-        palette=[None, "black", "red", "yellow", "green", "blue", "magenta", "grey", "lightred", "lightyellow", "lightgreen", "lightblue", "lightmagenta", "lightgrey"]
-        snippetcolors={'leftsnippet': 'lightyellow', 'rightsnippet': 'lightblue'}
+        palette=["stdfg", "stdbg", "red", "green", "magenta", "grey"]
+        snippetcolors={'leftsnippet': 'red', 'rightsnippet': 'green'}
         bar='' if task=="raw" else {'op': 'bar'}
         leftsnippetname=''
         rightsnippetname=''
-        def colorize(fg=None, bold=False, bg=None, bg2=None):
+        def colorize(fg="stdfg", bold=False, bg="stdbg"):
             if(task=="raw"): return ''
             if(suppressed):
                 return {
                     'op': 'colorize',
-                    'fg': "lightgrey",
+                    'fg': "grey",
                     'bold': False,
-                    'bg': None,
-                    'bg2': None,
+                    'bg': "stdbg",
                 }
             if(fg not in palette): die(f'Illegal fg color {fg}', None)
             if(bg not in palette): die(f'Illegal bg color {bg}', None)
-            if(bg2 not in palette): die(f'Illegal bg2 color {bg2}', None)
+            if(fg==bg): die(f'Cannot use same fg and bg color.', None)
+            # Grey is used to de-emphasize and bold to emphasize.
+            if(bold and "grey" in [fg, bg]): die(f'Bold grey is illegal.', None)
             if(bold not in [True, False]): die(f'Illegal bold value {bold}', None)
             return {
                 'op': 'colorize',
                 'fg': fg,
                 'bold': bold,
                 'bg': bg,
-                'bg2': bg2,
             }
         for obj in inputObjs:
             op=obj['op']
@@ -429,43 +429,41 @@ def formatDiffHelper(inputObjs, task="raw"):
                 ]
             elif(op.endswith('content')):
                 yield from prefix
-                colorfrom=op
-                if(op in ['leftcontent', 'bothcontent']):
-                    colorfrom+="left"
-                    colorfrom+="snippet" if leftsnippetname else "file"
-                if(op in ['rightcontent', 'bothcontent']):
-                    colorfrom+="right"
-                    colorfrom+="snippet" if rightsnippetname else "file"
-                [                                          char,    charfgcolor, barcolor, contentfgcolor, contentbgcolor, contentbg2color]={
-                    'leftcontentleftfile':                ['-',     "red",       "red",    None,           "lightred",     None],
-                    'leftcontentleftsnippet':             ['-',     "yellow",    "yellow", None,           "lightyellow",  None],
-                    'rightcontentrightfile':              ['+',     "green",     "green",  None,           "lightgreen",   None],
-                    'rightcontentrightsnippet':           ['+',     "blue",      "blue",   None,           "lightblue",    None],
-                    'bothcontentleftfilerightfile':       [' ',     None,        "grey",   None,           None,           None],
-                    'bothcontentleftfilerightsnippet':    [' ',     None,        "grey",   None,           "lightred",     "lightblue"],
-                    'bothcontentleftsnippetrightfile':    [' ',     None,        "grey",   None,           "lightgreen",   "lightyellow"],
-                    'bothcontentleftsnippetrightsnippet': [' ',     None,        "grey",   None,           "lightyellow",  "lightblue"],
-                    'bothlowprioritycontent':             ['_',     "grey",      "grey",   "grey",         None,           None],
-                    'ignorecontent':                      ['#',     "grey",      "grey",   None,           "lightgrey",    None],
-                }[colorfrom]
+                files=""
+                if(op in ['leftcontent', 'bothcontent', 'bothlowprioritycontent'] and not leftsnippetname):
+                    files+="left"
+                if(op in ['rightcontent', 'bothcontent', 'bothlowprioritycontent'] and not rightsnippetname):
+                    files+="right"
+                charbgcolor={'left': 'red', 'right': 'green', '': 'stdfg', 'leftright': 'stdbg'}[files]
+                [                              char, charfgcolor, contentfgcolor, contentbgcolor, nlmfgcolor]={
+                    'leftcontent':            ['-',  "stdfg",     "stdfg",        "red",          "red",     ],
+                    'rightcontent':           ['+',  "stdfg",     "stdfg",        "green",        "green",   ],
+                    'bothcontent':            [' ',  "stdfg",     "stdfg",        "stdbg",        "magenta", ],
+                    'bothlowprioritycontent': ['_',  "grey",      "grey",         "stdbg",        "magenta", ],
+                    'ignorecontent':          ['#',  "grey",      "stdfg",        "grey",         "grey",    ],
+                }[op]
+                if charbgcolor=="stdfg" and charfgcolor=="stdfg":
+                    charfgcolor="stdbg"
                 if not(task=="visualize" and hunktype=="hintful"):
-                    yield colorize(fg=charfgcolor)
+                    yield colorize(fg=charfgcolor, bg=charbgcolor)
                     yield char
                     if not suppressed:
-                        yield colorize(fg=barcolor)
+                        yield colorize(fg="grey")
                         yield bar
                 content = obj['content']
-                yield colorize(fg=contentfgcolor, bg=contentbgcolor, bg2=contentbg2color)
+                yield colorize(fg=contentfgcolor, bg=contentbgcolor)
+                nlmColorize=colorize(fg=nlmfgcolor)
                 if(hunktype=='unified'):
                     yield obj['content']
                     if not obj['content'].endswith('\n'):
                         yield from [
                             '\n',
                             *prefix,
-                            colorize(fg="grey"),
+                            nlmColorize,
                             '\\',
+                            colorize(fg="grey"),
                             bar,
-                            colorize(fg="grey", bg=contentbgcolor),
+                            nlmColorize,
                             ' No newline at end of file\n',
                             ]
                 elif(hunktype=='hintful'):
@@ -473,7 +471,7 @@ def formatDiffHelper(inputObjs, task="raw"):
                         contentm = m(r'^(.*[^\r])?(\r*\n)$', content)
                         yield from [
                             contentm[1] or '',
-                            colorize(fg="magenta", bold=True, bg=contentbgcolor, bg2=contentbg2color),
+                            nlmColorize,
                             '$',
                             contentm[2],
                             ]
@@ -481,7 +479,7 @@ def formatDiffHelper(inputObjs, task="raw"):
                         yield content
                         if not(task=="visualize" and hunktype=="hintful"):
                             yield from [
-                                colorize(fg="magenta", bold=True, bg=contentbgcolor, bg2=contentbg2color),
+                                nlmColorize,
                                 '\\\n',
                             ]
                 else:
@@ -497,7 +495,7 @@ def formatDiffHelper(inputObjs, task="raw"):
                     if glue:
                         yield { 'op': 'beginGlueContent' }
                     yield from [
-                        colorize(fg=snippetcolors[op], bg="black", bold=True),
+                        colorize(fg=snippetcolors[op], bg="stdfg", bold=True),
                         char,
                         obj['name'],
                     ]
@@ -506,8 +504,11 @@ def formatDiffHelper(inputObjs, task="raw"):
                 else:
                     yield from [
                         *prefix,
-                        colorize(fg=snippetcolors[op], bg="black", bold=True),
+                        colorize(fg=snippetcolors[op], bg="stdfg", bold=True),
                         char,
+                        colorize(fg="grey"),
+                        bar,
+                        colorize(fg=snippetcolors[op], bg="stdfg", bold=True),
                         obj['name'],
                         '\n',
                     ]
@@ -611,10 +612,9 @@ def formatDiffHelper(inputObjs, task="raw"):
             if(obj=='\n' and task!="raw"):
                 yield {
                     'op': 'colorize',
-                    'fg': None,
+                    'fg': "stdfg",
                     'bold': False,
-                    'bg': None,
-                    'bg2': None,
+                    'bg': "stdbg",
                 }
             yield obj
     yield from processColorizationEndAtNewline(processNewlineDeferment(separateNewlines(interpretAndColorize(inputObjs))))

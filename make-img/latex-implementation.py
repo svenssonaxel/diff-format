@@ -33,19 +33,23 @@ def formatDiffVisualize(inputObjs):
 def formatLatex(inputObjs):
     contextEnd=""
     noColorization={
-        'fg': None,
+        'fg': "stdfg",
         'bold': False,
-        'bg': None,
-        'bg2': None,
+        'bg': "stdbg",
     }
     currentColorization=noColorization
     for obj in inputObjs:
         if(type(obj)==str):
             yield latexEscape(obj)
         elif(type(obj)==dict and obj['op']=='colorize'):
-            if not((currentColorization['fg']==None or obj['fg']) and
+            obj={**obj}
+            if(obj['bg']=="stdfg" and obj['fg']!="stdbg"):
+                obj['fg']="light"+obj['fg']
+            if not(obj['bg'].startswith("std")):
+                obj['bg']="light"+obj['bg']
+            if not((currentColorization['fg']=="stdfg" or obj['fg']) and
                    currentColorization['bold'] in [False, obj['bold']] and
-                   (currentColorization['bg'], currentColorization['bg2']) in [(None, None), (obj['bg'], obj['bg2'])]):
+                   currentColorization['bg'] in ["stdbg", obj['bg']]):
                 yield contextEnd
                 contextEnd=""
                 currentColorization=noColorization
@@ -55,11 +59,8 @@ def formatLatex(inputObjs):
             if(obj['bold'] and obj['bold']!= currentColorization['bold']):
                 yield r"\bold{"
                 contextEnd+="}"
-            if((obj['bg'] or obj['bg2']) and (obj['bg'], obj['bg2']) != (currentColorization['bg'], currentColorization['bg2'])):
-                if(obj['bg2']):
-                    yield from [r"\twobg{", obj['bg'], r"}{", obj['bg2'], r"}{"]
-                else:
-                    yield from [r"\bg{", obj['bg'], r"}{"]
+            if(obj['bg'] and obj['bg']!=currentColorization['bg']):
+                yield from [r"\bg{", obj['bg'], r"}{"]
                 contextEnd+="}"
             currentColorization=obj
         elif(type(obj)==dict and obj['op']=='bar'):
