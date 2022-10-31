@@ -754,6 +754,7 @@ def removeSnippets(inputObjs):
         else:
             die(f'removeSnippets cannot process operation {op}', None)
 
+headerOps=['index', 'labels', 'leftfilemode', 'rightfilemode', 'similarity-index', 'rename']
 def convertUnprefixedHunksToUnified(inputObjs):
     state={
         'leftcontent': '',
@@ -826,7 +827,7 @@ def convertUnprefixedHunksToUnified(inputObjs):
             state['leftended']=False
             state['rightended']=False
             yield obj
-        elif(op in ['index', 'labels', 'leftfilemode', 'rightfilemode', 'similarity-index', 'rename']):
+        elif(op in headerOps):
             yield obj
         else:
             die(f'convertUnprefixedHunksToUnified cannot process operation {op}', None)
@@ -1073,13 +1074,13 @@ def applyPrefixedFiles(inputObjs):
             for hunkObj in appliedFile['contents']:
                 op2=hunkObj['op']
                 if(op2=='hunk'): hunkCache[hunkKey(hunkObj)]=hunkObj
-                elif(op2 in ['index', 'labels']): pass
+                elif(op2 in headerOps): pass
                 else: die(f'Unexpected op {op2} in applyPrefixedFiles', None)
             newContents=[]
             for hunkObj in oldFile['contents']:
                 op2=hunkObj['op']
                 if(op2=='hunk' and hunkKey(hunkObj) in hunkCache): newContents.append(hunkCache[hunkKey(hunkObj)])
-                elif(op2 in ['index', 'hunk', 'labels']): newContents.append(hunkObj)
+                elif(op2 in ['hunk', *headerOps]): newContents.append(hunkObj)
                 else: die(f'Unexpected op {op2} in applyPrefixedFiles', None)
             yield {
                 **oldFile,
