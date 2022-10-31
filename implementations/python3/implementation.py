@@ -91,13 +91,13 @@ def parseDiff(inputLines):
                 yield from parseUnifiedHunk(hunkheader, inputLines, extraFields)
             betweenHeaderAndFirstHunk=False
             continue
-        linem = m(r'^(\|?)--- ([^\r]*)\r*\n$', line)
+        linem = m(r'^(\|?)--- ([^\r]*)(\r*\n)$', line)
         if(linem):
             if not betweenHeaderAndFirstHunk: die('[HDF21] `---` line can only appear between file comparison header and first hunk', lineNr)
             if linem[1]!=filePrefix: die('[HDF31] Prefix for `---` line did not match previous line', lineNr)
             [lineNr2, line2] = nextOrDie(inputLines, '[HDF22] Expected a `+++` line but got end of file', lineNr+1)
             maxLineNr=lineNr2
-            line2m = m(r'^(\|?)\+\+\+ ([^\r]*)\r*\n$', line2)
+            line2m = m(r'^(\|?)\+\+\+ ([^\r]*)(\r*\n)$', line2)
             if not line2 or not line2m:
                 die('[HDF22] Expected a `+++` line', lineNr2)
             if not (linem[1]==line2m[1]):
@@ -109,9 +109,11 @@ def parseDiff(inputLines):
                 'left': linem[2],
                 'right': line2m[2],
                 'lineNr': lineNr,
+                'leftcrlf': linem[3],
+                'rightcrlf': line2m[3],
                 }
             continue
-        linem = m(r'^(\|?)similarity index ([0-9]+%)\r*\n$', line)
+        linem = m(r'^(\|?)similarity index ([0-9]+%)(\r*\n)$', line)
         if(linem):
             if not betweenHeaderAndFirstHunk: die('[HDF21] `similarity index` line can only appear between file comparison header and first hunk', lineNr)
             if linem[1]!=filePrefix: die('[HDF31] Prefix for `similarity` line did not match previous line', lineNr)
@@ -121,15 +123,16 @@ def parseDiff(inputLines):
                 'filekey': fileKey,
                 'similarity-index': linem[2],
                 'lineNr': lineNr,
+                'crlf': linem[3],
                 }
             continue
-        linem = m(r'^(\|?)rename from ([^\r]*)\r*\n$', line)
+        linem = m(r'^(\|?)rename from ([^\r]*)(\r*\n)$', line)
         if(linem):
             if not betweenHeaderAndFirstHunk: die('[HDF21] `rename from` line can only appear between file comparison header and first hunk', lineNr)
             if linem[1]!=filePrefix: die('[HDF31] Prefix for `rename from` line did not match previous line', lineNr)
             [lineNr2, line2] = nextOrDie(inputLines, '[HDF22] Expected `rename to` line but got end of file', lineNr+1)
             maxLineNr=lineNr2
-            line2m = m(r'^(\|?)rename to ([^\r]*)\r*\n$', line2)
+            line2m = m(r'^(\|?)rename to ([^\r]*)(\r*\n)$', line2)
             if not line2 or not line2m:
                 die('[HDF22] Expected `rename to` line', lineNr2)
             if not (linem[1]==line2m[1]):
@@ -141,11 +144,13 @@ def parseDiff(inputLines):
                 'left': linem[2],
                 'right': line2m[2],
                 'lineNr': lineNr,
+                'leftcrlf': linem[3],
+                'rightcrlf': line2m[3],
                 }
             continue
         if(m(r'^\|?[-+ _#<>].*\n$', line)):
             die(f'[HDF21] Hunk content without header: {line}', lineNr)
-        linem = m(r'^(\|?)index ([0-9a-f]{7,})\.\.([0-9a-f]{7,})( +[0-7]{6})?\r*\n$', line)
+        linem = m(r'^(\|?)index ([0-9a-f]{7,})\.\.([0-9a-f]{7,})( +[0-7]{6})?(\r*\n)$', line)
         if(linem):
             if not betweenHeaderAndFirstHunk: die('[HDF21] `index` line can only appear between file comparison header and first hunk', lineNr)
             if linem[1]!=filePrefix: die('[HDF31] Prefix for `index` line did not match previous line', lineNr)
@@ -155,11 +160,12 @@ def parseDiff(inputLines):
                 'filekey': fileKey,
                 'left': linem[2],
                 'right': linem[3],
-                'mode': linem[4] if len(linem)==5 else None,
+                'mode': linem[4],
                 'lineNr': lineNr,
+                'crlf': linem[5],
                 }
             continue
-        linem = m(r'^(\|?)(new|deleted) file mode ([^\r]*)\r*\n$', line)
+        linem = m(r'^(\|?)(new|deleted) file mode ([^\r]*)(\r*\n)$', line)
         if(linem):
             if not betweenHeaderAndFirstHunk: die(f'[HDF21] `{linem[2]} file mode` line can only appear between file comparison header and first hunk', lineNr)
             if linem[1]!=filePrefix: die(f'[HDF31] Prefix for `{linem[2]} file mode` line did not match previous line', lineNr)
@@ -170,9 +176,10 @@ def parseDiff(inputLines):
                 'filekey': fileKey,
                 'mode': linem[3],
                 'lineNr': lineNr,
+                'crlf': linem[4],
             }
             continue
-        linem = m(r'^(\|?)diff --(git|hintful) ([^ ]+) +([^ \r]+)\r*\n$', line)
+        linem = m(r'^(\|?)diff --(git|hintful) ([^ ]+) +([^ \r]+)(\r*\n)$', line)
         if(linem):
             if(filePrefix!=None):
                 yield {
@@ -192,6 +199,7 @@ def parseDiff(inputLines):
                 'leftfile': linem[3],
                 'rightfile': linem[4],
                 'lineNr': lineNr,
+                'crlf': linem[5],
             }
             betweenHeaderAndFirstHunk=True
             continue
@@ -251,6 +259,7 @@ def parseUnifiedHunk(header, inputLines, extraFields):
                 'rightsnippetname': '',
                 'lineNr': lineNr,
                 **extraFields,
+                'crlf': '\n',
             }
             if(opchar in '- '):
                 leftlinecount-=1
@@ -305,6 +314,7 @@ def parseHintfulHunk(header, inputLines, extraFields):
                 'rightsnippetname': state['rightsnippetname'],
                 'lineNr': lineNr,
                 **extraFields,
+                'crlf': crlf,
             }
             for side in ['left', 'right']:
                 if(op in [f'{side}content', 'bothcontent', 'bothlowprioritycontent']):
@@ -313,13 +323,14 @@ def parseHintfulHunk(header, inputLines, extraFields):
                         die(r'[HDF16] `\r*\n` sequence must not be split.', lineNr)
                     state[target]+=content
             continue
-        linem = m(r'^(\|?)([<>])([^\r]*)\r*\n$', line)
+        linem = m(r'^(\|?)([<>])([^\r]*)(\r*\n)$', line)
         if(linem):
             prefix = linem[1]
             if prefix!=header['prefix']:
                 die(f'[HDF31] Expected prefix for hintful snippet line to match previous line', lineNr)
             opchar = linem[2]
             name = linem[3]
+            crlf = linem[4]
             op = {'<': 'leftsnippet', '>': 'rightsnippet'}[opchar]
             for side in ['left', 'right']:
                 if(op==f'{side}snippet'):
@@ -340,6 +351,7 @@ def parseHintfulHunk(header, inputLines, extraFields):
                 'name': name,
                 'lineNr': lineNr,
                 **extraFields,
+                'crlf': crlf,
             }
             continue
         die(f"[HDF12] Corrupt hunk: Strange line: '{line}'", lineNr)
@@ -390,7 +402,6 @@ def formatDiffHelper(inputObjs, task="raw"):
             }
         for obj in inputObjs:
             op=obj['op']
-            prefix=[colorize(fg="grey"), obj['prefix'], colorize()] if obj['prefix'] else []
             if(op=='beginhunk'):
                 hunkKey=(*fileKey,
                          obj['leftstartline'],
@@ -407,7 +418,6 @@ def formatDiffHelper(inputObjs, task="raw"):
                 else:
                     suppressed=False
                 yield from [
-                    *prefix,
                     colorize(fg="magenta", bold=True),
                     '@@ -',
                     obj['leftstartlineraw'],
@@ -428,7 +438,6 @@ def formatDiffHelper(inputObjs, task="raw"):
                     '\n',
                 ]
             elif(op.endswith('content')):
-                yield from prefix
                 files=""
                 if(op in ['leftcontent', 'bothcontent', 'bothlowprioritycontent'] and not leftsnippetname):
                     files+="left"
@@ -457,8 +466,7 @@ def formatDiffHelper(inputObjs, task="raw"):
                     yield obj['content']
                     if not obj['content'].endswith('\n'):
                         yield from [
-                            '\n',
-                            *prefix,
+                            obj['crlf'],
                             nlmColorize,
                             '\\',
                             colorize(fg="grey"),
@@ -480,7 +488,8 @@ def formatDiffHelper(inputObjs, task="raw"):
                         if not(task=="visualize" and hunktype=="hintful"):
                             yield from [
                                 nlmColorize,
-                                '\\\n',
+                                '\\',
+                                obj['crlf'],
                             ]
                 else:
                     die('Unexpected hunk type', None)
@@ -503,14 +512,13 @@ def formatDiffHelper(inputObjs, task="raw"):
                         yield { 'op': 'endGlueContent' }
                 else:
                     yield from [
-                        *prefix,
                         colorize(fg=snippetcolors[op], bg="stdfg", bold=True),
                         char,
                         colorize(fg="grey"),
                         bar,
                         colorize(fg=snippetcolors[op], bg="stdfg", bold=True),
                         obj['name'],
-                        '\n',
+                        obj['crlf'],
                     ]
             elif(op in ['endleftsnippet', 'endrightsnippet']):
                 pass
@@ -520,51 +528,47 @@ def formatDiffHelper(inputObjs, task="raw"):
                 pass
             elif(op in ['labels']):
                 yield from [
-                    *prefix,
                     colorize(fg="red", bold=True),
-                    f"--- {obj['left']}\n",
-                    *prefix,
+                    f"--- {obj['left']}",
+                    obj['leftcrlf'],
                     colorize(fg="green", bold=True),
-                    f"+++ {obj['right']}\n",
+                    f"+++ {obj['right']}",
+                    obj['rightcrlf'],
                 ]
             elif(op=='beginfile'):
                 suppressed=False
+                yield {
+                    'op': 'setprefix',
+                    'prefix': [colorize(fg="grey"), obj['prefix'], colorize()] if obj['prefix'] else []
+                }
                 fileKey=(obj['leftfile'], obj['rightfile'])
                 yield from [
-                    *prefix,
                     colorize(bold=True),
-                    f"diff --{obj['fileformat']} {obj['leftfile']} {obj['rightfile']}\n",
+                    f"diff --{obj['fileformat']} {obj['leftfile']} {obj['rightfile']}{obj['crlf']}",
                 ]
             elif(op=='index'):
                 yield from [
-                    *prefix,
                     colorize(bold=True),
                     f"index {obj['left']}..{obj['right']}",
                     obj['mode'] if obj['mode'] else '',
-                    '\n',
+                    obj['crlf'],
                 ]
             elif(op.endswith('filemode')):
                 yield from [
-                    *prefix,
                     colorize(fg={'leftfilemode': 'red', 'rightfilemode': 'green'}[op], bold=True),
                     {'leftfilemode': 'deleted', 'rightfilemode': 'new'}[op],
                     ' file mode ',
                     obj['mode'],
-                    '\n',
+                    obj['crlf'],
                 ]
             elif(op=='similarity-index'):
-                yield from [
-                    *prefix,
-                    f"similarity index {obj['similarity-index']}\n",
-                ]
+                yield f"similarity index {obj['similarity-index']}{obj['crlf']}"
             elif(op=='rename'):
                 yield from [
-                    *prefix,
                     colorize(bold=True),
-                    f"rename from {obj['left']}\n",
-                    *prefix,
+                    f"rename from {obj['left']}{obj['leftcrlf']}",
                     colorize(bold=True),
-                    f"rename to {obj['right']}\n",
+                    f"rename to {obj['right']}{obj['rightcrlf']}",
                 ]
             else:
                 die(f'formatDiffHelper cannot process operation {op}', None)
@@ -617,10 +621,103 @@ def formatDiffHelper(inputObjs, task="raw"):
                     'bg': "stdbg",
                 }
             yield obj
-    yield from processColorizationEndAtNewline(processNewlineDeferment(separateNewlines(interpretAndColorize(inputObjs))))
+    def removeEmpty(inputObjs):
+        for obj in inputObjs:
+            if(obj==''):
+                pass
+            else:
+                yield obj
+    def deduplicateColorization(inputObjs):
+        prevObj=None
+        for obj in inputObjs:
+            if(not(type(prevObj)==dict and prevObj['op']=='colorize' and
+                   type(obj)==dict and obj['op']=='colorize') and
+               prevObj!=None):
+                yield prevObj
+            prevObj=obj
+        if not(prevObj==None):
+            yield prevObj
+    def processPrefix(inputObjs):
+        prefix=[]
+        atBeginningOfLine=True
+        for obj in inputObjs:
+            op=obj['op'] if type(obj)==dict else None
+            if(op=="setprefix"):
+                prefix=obj['prefix']
+            elif(obj=='\n'):
+                yield obj
+                atBeginningOfLine=True
+            elif(type(obj)==str or op=="colorize"):
+                if atBeginningOfLine:
+                    yield from prefix
+                yield obj
+                atBeginningOfLine=False
+            elif(op=="bar"):
+                if atBeginningOfLine:
+                    die(f'Bar at beginning of line', None)
+                else:
+                    yield obj
+            else:
+                die(f'Strange object in processPrefix: {repr(obj)}', None)
+    def reducer(reduced, next_generator):
+        return next_generator(reduced)
+    procStack=[
+        interpretAndColorize,
+        separateNewlines,
+        processNewlineDeferment,
+        processColorizationEndAtNewline,
+        removeEmpty,
+        deduplicateColorization,
+        processPrefix,
+    ]
+    yield from functools.reduce(reducer, procStack, inputObjs)
 
+def formatTerminal(inputObjs):
+    currentColorization={
+        'fg': "stdfg",
+        'bold': False,
+        'bg': "stdbg",
+        'reverse': False,
+    }
+    colorizeString=None
+    for obj in inputObjs:
+        if(type(obj)==dict and obj['op']=='bar'): pass
+        elif(obj==''): pass
+        elif(type(obj)==str):
+            if colorizeString:
+                yield colorizeString
+                colorizeString=None
+            yield obj
+        elif(type(obj)==dict and obj['op']=='colorize'):
+            obj={**obj}
+            if obj['fg']=="stdbg" or obj['bg']=="stdfg":
+                tmp=obj['bg']
+                obj['bg']=obj['fg']
+                obj['fg']=tmp
+                obj['reverse']=True
+            else:
+                obj['reverse']=False
+            colorizeString=f'\x1b[0'
+            if obj['bold']: colorizeString+=';1'
+            if obj['reverse']: colorizeString+=';7'
+            if obj['fg']!="stdfg":
+                colorizeString+=';'+{"red": '31;91', "green": '32;92', "magenta": '35', "grey": '90;2;38;5;244;38;2;128;128;128'}[obj["fg"]]
+            if obj['bg']!="stdbg":
+                colorizeString+=';'+{"red": '41;101', "green": '42;102', "magenta": '45', "grey": '100;2;48;5;244;48;2;128;128;128'}[obj["bg"]]
+            colorizeString+='m'
+            currentColorization=obj
+        else:
+            die('Weird object in formatTerminal', None)
+
+def terminalHighlight(inputObjs):
+    yield from formatTerminal(formatDiffHelper(inputObjs, "highlight"))
+def terminalVisualize(inputObjs):
+    yield from formatTerminal(formatDiffHelper(inputObjs, "visualize"))
 def formatDiff(inputObjs):
-    yield from formatDiffHelper(inputObjs, "raw")
+    if sys.stdout.isatty():
+        yield from terminalHighlight(inputObjs)
+    else:
+        yield from formatDiffHelper(inputObjs, "raw")
 
 def removeSnippets(inputObjs):
     leftsnippetname=''
@@ -717,6 +814,7 @@ def convertUnprefixedHunksToUnified(inputObjs):
                         'op': var,
                         'prefix': '',
                         'content': state[var],
+                        'crlf': '\n',
                     }
                     state[var]=''
                     if(var in ['leftcontent', 'bothcontent']):
@@ -1083,6 +1181,14 @@ def getProcStack():
             removeEverythingPrefixed,
             validateFilesAndHunks,
             sink,
+        ],
+        'terminal-highlight-diff': [
+            terminalHighlight,
+            output,
+        ],
+        'terminal-visualize-diff': [
+            terminalVisualize,
+            output,
         ],
     }[os.path.basename(sys.argv[0])]
     return procStack

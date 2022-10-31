@@ -2,7 +2,7 @@
 import contextlib, hashlib, os, re, sys, tempfile, threading, unittest
 
 runAllTests="RUNALLTESTS" in os.environ and os.environ['RUNALLTESTS']
-_totalNumberOfAssertions = 19923 if runAllTests else 6170
+_totalNumberOfAssertions = 7868 + (9748 if runAllTests else 0)
 
 # A table of strings expected to be included in the error message when validating invalid diff files
 expectedErrorMessagesForInvalidFiles={
@@ -389,6 +389,26 @@ class TestAll(unittest.TestCase):
                                 with self.nestTest(f'Validate {mode} diff using {validateDiff}'):
                                     self.shAssert(f'< {newDiffFile} {validateDiff}')
                             self.doTestDiffForwardPatch(newDiffFile, newV1, newV2, mode)
+        # If the diff file contains no escape character then test highlighting and visualization
+        if(not self.shBool(f"grep -ERq `printf '\\e'` {diffFile}")):
+            with filesInTmpDir([diffFile]):
+                diffFileHasPrefix=self.shBool("grep -ERq " + shQuote(r'^\|') + f" {diffFile}")
+                for highlightDiff in implementationsOf['terminal-highlight-diff']:
+                    with self.nestTest(f'Testing highlighter {highlightDiff}'):
+                        with filesInTmpDir([diffFile]):
+                            self.sh(f'< {diffFile} {highlightDiff} > {diffFile}.highlighted')
+                            with self.nestTest(f'Checking that only escape sequences are added by highlighter {highlightDiff}'):
+                                removeEscCmd="sed -r 's/'`printf '\\e'`'\\[[0-9;]+m//g'"
+                                self.sh(f"< {diffFile}.highlighted {removeEscCmd} > {diffFile}.highlighted.unhighlighted")
+                                self.assertSame(diffFile, f"{diffFile}.highlighted.unhighlighted")
+                for visualizeDiff in implementationsOf['terminal-visualize-diff']:
+                    with self.nestTest(f'Testing visualizer {visualizeDiff}'):
+                        with filesInTmpDir([diffFile]):
+                            self.sh(f'< {diffFile} {visualizeDiff} > {diffFile}.visualized')
+                            with self.nestTest('Checking that presence of prefix in the beginning of line is preserved by visualizer'):
+                                self.shAssert("grep -ERq " + shQuote('^\x1b\\[0;90;[0-9;]*m\\|') + f" {diffFile}.visualized", 0 if diffFileHasPrefix else 1)
+                            with self.nestTest('Checking that prefixes are not shown other than in the beginning of line by visualizer'):
+                                self.shAssert("grep -ER " + shQuote('.\x1b\\[0;90;[0-9;]*m\\|') + f" {diffFile}.visualized", 1)
 
     def doTestDiffForwardPatch(self, diffFile, v1, v2, mode):
         if(self.alreadyRun("doTestDiffForwardPatch", self.hashFileOrDir(diffFile), self.hashFileOrDir(v1), self.hashFileOrDir(v2), mode)): return
