@@ -84,10 +84,22 @@ _local.cwd = os.getcwd()
 def cwd():
     global _local
     return _local.cwd
+def shQuote(s):
+    assert type(s)==str
+    ret=r"`printf '"
+    for char in s:
+        code=ord(char)
+        assert 0 < code <= 0xff
+        ret+='\\'+('00'+oct(code)[2:])[-3:]
+    ret+="'`"
+    return ret
 def os_system(cmd):
     global _firstError
     if _firstError:
         die('An error occurred elsewhere, so stopping all activity')
+    # Since we cannot `set -o pipefail` in POSIX sh, we instead forbid piping.
+    if '|' in cmd:
+        die(f'No piping in os_system. cmd: {cmd}')
     return os.system(f'cd {cwd()} || exit 2; {cmd}')
 def joinCwd(*path): return os.path.abspath(os.path.join(cwd(), *path))
 def os_listdir(dir='.'): return os.listdir(joinCwd(dir))
@@ -310,13 +322,13 @@ class TestAll(unittest.TestCase):
         # Validate diff file
         for validateDiff in implementationsOf[f'validate-{mode}-diff']:
             with self.nestTest(f'Validate {mode} diff using {validateDiff}'):
-                self.shAssert(f'cat {diffFile} | {validateDiff}')
+                self.shAssert(f'< {diffFile} {validateDiff}')
         # For compat and unified format, try patching
         if(mode in ['compat', 'unified']):
             self.doTestDiffForwardPatch(diffFile, v1, v2, mode)
         # By specification, we have the following invariants:
         # (1) ¬hasPrefixLines(file) → isValidUnified(file) → isValidCompat(file)
-        if(mode=="unified" and not self.shBool(f"grep -ERq '^\\|' {diffFile}")):
+        if(mode=="unified" and not self.shBool("grep -ERq " + shQuote(r'^\|') + f" {diffFile}")):
             with self.nestTest('Interpret this unified diff as if it was in compat format'):
                 self.doTestDiff(diffFile, v1, v2, "compat")
         # (2) isValidCompat(file) → isValidUnified(file)
@@ -338,21 +350,22 @@ class TestAll(unittest.TestCase):
                 for convertDiff in implementationsOf[f'convert-{mode}-diff-to-{othermode}-diff']:
                     with self.nestTest(f'Convert to {othermode} using {convertDiff}'):
                         with filesInTmpDir([diffFile, v1, v2]):
-                            self.sh(f'cat {diffFile} | {convertDiff} > {diffFile}.converted-to.{othermode}.diff')
-                            self.doTestDiff(f'{diffFile}.converted-to.{othermode}.diff', v1, v2, othermode)
+                            self.sh(f'< {diffFile} {convertDiff} > {diffFile}.converted-to.{othermode}.diff')
+                            self.doTestDiff(f"{diffFile}.converted-to.{othermode}.diff", v1, v2, othermode)
         # Test reversing
         for reverseDiff in implementationsOf[f'reverse-{mode}-diff']:
             with self.nestTest(f'Reverse {mode} diff using {reverseDiff}'):
                 with filesInTmpDir([diffFile, v1, v2]):
-                    self.sh(f'cat {diffFile} | {reverseDiff} > {diffFile}.reversed')
+                    self.sh(f'< {diffFile} {reverseDiff} > {diffFile}.reversed')
                     self.assertNotSame(diffFile, f'{diffFile}.reversed')
                     with self.nestTest('Three reversions has the same effect as one'):
-                        self.sh(f'cat {diffFile}.reversed | {reverseDiff} | {reverseDiff} > {diffFile}.triple-reversed')
+                        self.sh(f'< {diffFile}.reversed {reverseDiff} > {diffFile}.double-reversed')
+                        self.sh(f'< {diffFile}.double-reversed {reverseDiff} > {diffFile}.triple-reversed')
                         self.assertSame(f'{diffFile}.reversed', f'{diffFile}.triple-reversed')
                     with self.nestTest('Use reverse diff file as diff file'):
                         self.doTestDiff(f'{diffFile}.reversed', v2, v1, mode)
         # Validity and semantics should be preserved over newline conversions for any diff file not using the `\ No newline` syntax
-        if(not self.shBool(f"grep -ERq '^\\|?\\\\ No newline' {diffFile}")):
+        if(not self.shBool("grep -ERq " + shQuote(r'^\|?\\') + f"' No newline' {diffFile}")):
             actions=[]
             if not self.shBool(f"grep -ERq `printf '\\r\\r$'` {diffFile} {v1} {v2}"):
                 actions.append(['Add CR', 'add-cr', r's@\n@\r\n@'])
@@ -374,7 +387,7 @@ class TestAll(unittest.TestCase):
                         else:
                             for validateDiff in implementationsOf[f'validate-{mode}-diff']:
                                 with self.nestTest(f'Validate {mode} diff using {validateDiff}'):
-                                    self.shAssert(f'cat {newDiffFile} | {validateDiff}')
+                                    self.shAssert(f'< {newDiffFile} {validateDiff}')
                             self.doTestDiffForwardPatch(newDiffFile, newV1, newV2, mode)
 
     def doTestDiffForwardPatch(self, diffFile, v1, v2, mode):
@@ -394,7 +407,7 @@ class TestAll(unittest.TestCase):
                     for convertToUnifiedDiff in implementationsOf[f'convert-{mode}-diff-to-unified-diff']:
                         with self.nestTest(f'Convert to unified using {convertToUnifiedDiff}'):
                             with filesInTmpDir([diffFile, v1, v2]):
-                                self.sh(f'cat {diffFile} | {convertToUnifiedDiff} > {diffFile}.converted-to.unified.diff')
+                                self.sh(f'< {diffFile} {convertToUnifiedDiff} > {diffFile}.converted-to.unified.diff')
                                 self.doTestDiffForwardPatch(f'{diffFile}.converted-to.unified.diff', v1, v2, 'unified')
 
     def doTestInvalidDiff(self, diffFile, mode, checkMessages=True, fileKey=None):
@@ -406,7 +419,7 @@ class TestAll(unittest.TestCase):
             with self.nestTest(f'Make sure {mode} diff is invalid using {validateDiff}'):
                 with filesInTmpDir([diffFile]):
                     stderrFile=f'{diffFile}.validation.stderr'
-                    self.shAssert(f'cat {diffFile} | {validateDiff} 2>{stderrFile}', 1)
+                    self.shAssert(f'< {diffFile} {validateDiff} 2>{stderrFile}', 1)
                     if checkMessages:
                         with self.nestTest(f'Checking error message'):
                             with open(joinCwd(stderrFile), encoding='latin1') as errMsgFile:
@@ -417,7 +430,7 @@ class TestAll(unittest.TestCase):
                                         with self.nestTest(f'Check that the error message includes "{expectedErrMsg}"'):
                                             self.assertEqual(True, expectedErrMsg.lower() in errMsg.lower())
         # Validity should be preserved over newline conversions for any diff file not using the `\ No newline` syntax
-        if(not self.shBool(f"grep -ERq '^\\|?\\\\ No newline' {diffFile}")):
+        if(not self.shBool("grep -ERq " + shQuote(r'^\|?\\') + f"' No newline' {diffFile}")):
             actions=[]
             if not self.shBool(f"grep -ERq `printf '\\r\\r$'` {diffFile}"):
                 actions.append(['Add CR', 'add-cr', r's@\n@\r\n@'])
@@ -437,7 +450,7 @@ class TestAll(unittest.TestCase):
         # (4) isValidCompat(file) → isValidHintful(file)
         # By contraposition, we therefore have the following invariants useful for testing invalid diff files:
         # (5) ¬hasPrefixLines(file) → ¬isValidCompat(file) → ¬isValidUnified(file) [from (1)]
-        if(mode=="compat" and not self.shBool(f"grep -ERq '^\\|' {diffFile}")):
+        if(mode=="compat" and not self.shBool("grep -ERq " + shQuote(r'^\|') + f" {diffFile}")):
             with self.nestTest('Interpret this invalid compat diff as if it was in unified format'):
                 self.doTestInvalidDiff(diffFile, "unified", False, fileKey)
         # (6) ¬isValidUnified(file) → ¬isValidCompat(file) [from (2)]
@@ -471,14 +484,14 @@ class TestAll(unittest.TestCase):
 
     def doTestErrorCodes(self):
         with filesInTmpDir(["../implementations/python3/implementation.py", "../ERROR-CODES.md", "../tests"]):
-            self.sh(r"find tests | sed -r 's/^/d/;s/^.*\/([0-9]{3}\/.*\.invalid\..*)$/\1/;/^d/d;'|sort|uniq > invalidation-test-case-files")
-            self.sh(r"printf '" + '\\n'.join(expectedErrorMessagesForInvalidFiles.keys()) + r"' |sort > invalidation-test-cases-in-table")
+            self.sh(r"find tests > tmp1; < tmp1 sed -r 's/^/d/;s/^.*\/([0-9]{3}\/.*\.invalid\..*)$/\1/;/^d/d;' > tmp2; < tmp2 sort > tmp3; < tmp3 uniq > invalidation-test-case-files")
+            self.sh(r"printf '" + '\\n'.join(expectedErrorMessagesForInvalidFiles.keys()) + r"' > tmp4; < tmp4 sort > invalidation-test-cases-in-table")
             with self.nestTest('Compare *invalid* test case files to those mentioned in the table for expected error messages'):
                 self.assertSame("invalidation-test-case-files", "invalidation-test-cases-in-table")
-            self.sh(r"< implementation.py sed -r 's/^/d/;s/^.*\[(HDF[0-9][0-9])\].*$/\1/;/^d/d;'|sort|uniq > error-codes-in-implementation.py")
-            self.sh(r"< ERROR-CODES.md sed -r 's/^/d/;s/^.*\[(HDF[0-9][0-9])\].*$/\1/;/^d/d;'|sort|uniq > error-codes-in-ERROR-CODES.md")
-            self.sh(r"printf '" + '\\n'.join([value for values in expectedErrorMessagesForInvalidFiles.values() for value in values]) + r"'" +
-                    r"| sed -r 's/^/d/;s/^.*\[(HDF[0-9][0-9])\].*$/\1/;/^d/d;'|sort|uniq > error-codes-in-table")
+            self.sh(r"< implementation.py sed -r 's/^/d/;s/^.*\[(HDF[0-9][0-9])\].*$/\1/;/^d/d;' > tmp5; < tmp5 sort > tmp6; < tmp6 uniq > error-codes-in-implementation.py")
+            self.sh(r"< ERROR-CODES.md sed -r 's/^/d/;s/^.*\[(HDF[0-9][0-9])\].*$/\1/;/^d/d;' > tmp7; < tmp7 sort > tmp8; < tmp8 uniq > error-codes-in-ERROR-CODES.md")
+            self.sh(r"printf '" + '\\n'.join([value for values in expectedErrorMessagesForInvalidFiles.values() for value in values]) + r"' > tmp9; " +
+                    r"< tmp9 sed -r 's/^/d/;s/^.*\[(HDF[0-9][0-9])\].*$/\1/;/^d/d;' > tmp10; < tmp10 sort > tmp11; < tmp11 uniq > error-codes-in-table")
             with self.nestTest('Compare error codes in ERROR-CODES.md to those mentioned in implementations/python3/implementation.py'):
                 self.assertSame("error-codes-in-ERROR-CODES.md", "error-codes-in-implementation.py")
             with self.nestTest('Compare error codes in ERROR-CODES.md to those mentioned in the table for expected error messages'):
@@ -520,7 +533,7 @@ class TestAll(unittest.TestCase):
     def mapFiles(self, cmd, files):
         for filename in files:
             if(os_path_isfile(filename)):
-                self.sh(f'cat {filename} | {cmd} > {filename}.tmp.processing; mv {filename}.tmp.processing {filename};')
+                self.sh(f'< {filename} {cmd} > {filename}.tmp.processing; mv {filename}.tmp.processing {filename};')
             elif(os_path_isdir(filename)):
                 files2 = os_listdir(filename)
                 with inDir(filename):
