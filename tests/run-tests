@@ -359,10 +359,9 @@ class TestAll(unittest.TestCase):
                 with filesInTmpDir([diffFile, v1, v2]):
                     self.sh(f'< {diffFile} {reverseDiff} > {diffFile}.rev')
                     self.assertNotSame(diffFile, f'{diffFile}.rev')
-                    with self.nestTest('Three reversions has the same effect as one'):
+                    with self.nestTest('Test that double reversion reproduces the original'):
                         self.sh(f'< {diffFile}.rev {reverseDiff} > {diffFile}.2rev')
-                        self.sh(f'< {diffFile}.2rev {reverseDiff} > {diffFile}.3rev')
-                        self.assertSame(f'{diffFile}.rev', f'{diffFile}.3rev')
+                        self.assertSame(f'{diffFile}', f'{diffFile}.2rev')
                     with self.nestTest('Use reverse diff file as diff file'):
                         self.doTestDiff(f'{diffFile}.rev', v2, v1, mode)
         # Validity and semantics should be preserved over newline conversions for any diff file not using the `\ No newline` syntax
