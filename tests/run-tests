@@ -406,9 +406,9 @@ class TestAll(unittest.TestCase):
                         with filesInTmpDir([diffFile]):
                             self.sh(f'< {diffFile} {visualizeDiff} > {diffFile}.visualized')
                             with self.nestTest('Checking that presence of prefix in the beginning of line is preserved by visualizer'):
-                                self.shAssert("grep -ERq " + shQuote('^\x1b\\[0;90;[0-9;]*m\\|') + f" {diffFile}.visualized", 0 if diffFileHasPrefix else 1)
+                                self.shAssert("grep -ERq " + shQuote('^\x1b\\[0;34;90;[0-9;]*m\\|') + f" {diffFile}.visualized", 0 if diffFileHasPrefix else 1)
                             with self.nestTest('Checking that prefixes are not shown other than in the beginning of line by visualizer'):
-                                self.shAssert("grep -ER " + shQuote('.\x1b\\[0;90;[0-9;]*m\\|') + f" {diffFile}.visualized", 1)
+                                self.shAssert("grep -ER " + shQuote('.\x1b\\[0;34;90;[0-9;]*m\\|') + f" {diffFile}.visualized", 1)
 
     def doTestDiffForwardPatch(self, diffFile, v1, v2, mode):
         if(self.alreadyRun("doTestDiffForwardPatch", self.hashFileOrDir(diffFile), self.hashFileOrDir(v1), self.hashFileOrDir(v2), mode)): return

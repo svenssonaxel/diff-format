@@ -697,13 +697,36 @@ def formatTerminal(inputObjs):
                 obj['reverse']=True
             else:
                 obj['reverse']=False
+            # Begin by resetting all rendition parameters. Even though there are codes to more granularly turn off specific parameters, they are less portable.
             colorizeString=f'\x1b[0'
+            # Code   | Meaning
+            # 1      | Bold
+            # 7      | Reverse video
+            # 3X     | For 0<=X<=7, set foreground color to X
+            # 9X     | For 0<=X<=7, set foreground color to X+8
+            # 38;5;X | For 16<=X<=255, set foreground color to X
+            # 4X     | For 0<=X<=7, set background color to X
+            # 10X    | For 0<=X<=7, set background color to X+8
+            # 48;5;X | For 16<=X<=255, set background color to X
+            # See https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_(Select_Graphic_Rendition)_parameters) for code details.
+            # See https://www.ditig.com/256-colors-cheat-sheet for color details.
+            # The colors are chosen to look good in both dark and light mode, and to not interfere with other SGR codes (except blink which is inevitable), should the terminal ignore the 38 or 48 and keep processing the rest.
             if obj['bold']: colorizeString+=';1'
             if obj['reverse']: colorizeString+=';7'
             if obj['fg']!="stdfg":
-                colorizeString+=';'+{"red": '31;91', "green": '32;92', "magenta": '35', "grey": '90;2;38;5;244;38;2;128;128;128'}[obj["fg"]]
+                colorizeString+=';'+{
+                    "red": '31;91;38;5;203', # IndianRed1 if supported, otherwise Red if supported, otherwise Maroon
+                    "green": '32;92', # Lime if supported, otherwise Green
+                    "magenta": '35;95;38;5;165', # Magenta2 if supported, otherwise Fuchsia if supported, otherwise Purple
+                    "grey": '34;90;38;5;244', # Grey50 if supported, otherwise Grey if supported, otherwise Navy
+                }[obj["fg"]]
             if obj['bg']!="stdbg":
-                colorizeString+=';'+{"red": '41;101', "green": '42;102', "magenta": '45', "grey": '100;2;48;5;244;48;2;128;128;128'}[obj["bg"]]
+                colorizeString+=';'+{
+                    "red": '41;101;48;5;167', # IndianRed if supported, otherwise Red if supported, otherwise Maroon
+                    "green": '42;102;48;5;71', # DarkSeaGreen4 if supported, otherwise Lime if supported, otherwise Green
+                    "magenta": '45;105;48;5;165', # Magenta2 if supported, otherwise Fuchsia if supported, otherwise Purple
+                    "grey": '44;100;48;5;244', # Grey50 if supported, otherwise Grey if supported, otherwise Navy
+                }[obj["bg"]]
             colorizeString+='m'
             currentColorization=obj
         else:
